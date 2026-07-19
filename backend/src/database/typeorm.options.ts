@@ -1,6 +1,6 @@
 import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSourceOptions } from 'typeorm';
-import { WorldHeritageSite } from '../world-heritage-site.entity';
+import { WorldHeritageSite } from './entities/world-heritage-site.entity';
 
 type SharedPostgresOptions = {
   type: 'postgres';
@@ -43,5 +43,8 @@ export function createDataSourceOptions(
   databaseUrl: string,
   synchronize: boolean,
 ): DataSourceOptions {
-  return createSharedPostgresOptions(databaseUrl, synchronize) as DataSourceOptions;
+  return createSharedPostgresOptions(
+    databaseUrl,
+    synchronize,
+  ) as DataSourceOptions;
 }

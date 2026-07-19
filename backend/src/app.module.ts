@@ -4,7 +4,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createTypeOrmModuleOptions } from './database/typeorm.options';
-import { WorldHeritageSite } from './world-heritage-site.entity';
+import { WorldHeritageSite } from './database/entities/world-heritage-site.entity';
 
 @Module({
   imports: [
