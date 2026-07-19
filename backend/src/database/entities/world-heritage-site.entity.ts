@@ -34,7 +34,7 @@ export type HeritageComponent = {
 };
 
 @Entity()
-@Index('idx_world_heritage_sites_coordinates', ['latitude', 'longitude'])
+@Index(['latitude', 'longitude'])
 export class WorldHeritageSite {
   @PrimaryColumn({ type: 'uuid' })
   uuid: string;
@@ -47,37 +47,7 @@ export class WorldHeritageSite {
   nameEn: string;
 
   @Column({ type: 'text', nullable: true })
-  nameFr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  nameEs: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  nameRu: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  nameAr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  nameZh: string | null;
-
-  @Column({ type: 'text', nullable: true })
   shortDescriptionEn: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  shortDescriptionFr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  shortDescriptionEs: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  shortDescriptionRu: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  shortDescriptionAr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  shortDescriptionZh: string | null;
 
   @Column({ type: 'text', nullable: true })
   descriptionEn: string | null;
@@ -179,21 +149,6 @@ export class WorldHeritageSite {
   @Column({ type: 'text', nullable: true })
   mainImageCaptionEn: string | null;
 
-  @Column({ type: 'text', nullable: true })
-  mainImageCaptionFr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainImageCaptionEs: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainImageCaptionRu: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainImageCaptionAr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainImageCaptionZh: string | null;
-
   @Column({
     type: 'text',
     array: true,
@@ -209,21 +164,6 @@ export class WorldHeritageSite {
 
   @Column({ type: 'text', nullable: true })
   mainVideoCaptionEn: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainVideoCaptionFr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainVideoCaptionEs: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainVideoCaptionRu: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainVideoCaptionAr: string | null;
-
-  @Column({ type: 'text', nullable: true })
-  mainVideoCaptionZh: string | null;
 
   @Column({
     type: 'text',
