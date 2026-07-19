@@ -1,6 +1,6 @@
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSourceOptions } from 'typeorm';
 import { WorldHeritageSite } from './entities/world-heritage-site.entity';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 
 type SharedPostgresOptions = {
   type: 'postgres';

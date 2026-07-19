@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { createTypeOrmModuleOptions } from './database/typeorm.options';
 import { WorldHeritageSite } from './database/entities/world-heritage-site.entity';
+import { HeritageImportModule } from './api/import/heritage-import/heritage-import.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { WorldHeritageSite } from './database/entities/world-heritage-site.entit
         ),
     }),
     TypeOrmModule.forFeature([WorldHeritageSite]),
+    HeritageImportModule,
   ],
   controllers: [AppController],
   providers: [AppService],
