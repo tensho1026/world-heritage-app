@@ -1,19 +1,33 @@
 # world-heritage-app
 
-NestJS API using TypeORM and Neon Postgres.
+React フロントエンドと NestJS バックエンドを npm workspaces で管理するモノレポです。
 
-## Setup
+## 構成
+
+- `frontend`: React + TypeScript + Vite
+- `backend`: NestJS + TypeORM + Neon Postgres
+
+## セットアップ
 
 ```bash
 npm install
-cp .env.example .env
-npm run db:check
-npm run start:dev
+cp backend/.env.example backend/.env
 ```
 
-## Scripts
+## 開発サーバー
 
-- `npm run db:check` checks the configured Neon connection.
-- `npm run lint` runs ESLint.
-- `npm test` runs unit tests.
-- `npm run build` compiles the NestJS app.
+```bash
+# frontend
+npm run dev:frontend
+
+# backend
+npm run dev:backend
+```
+
+## チェック
+
+```bash
+npm run lint
+npm test
+npm run build
+```
