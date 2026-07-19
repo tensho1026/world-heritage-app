@@ -11,7 +11,7 @@ npm run db:check
 npm run start:dev
 ```
 
-上記は `backend` ディレクトリ内で実行します。リポジトリルートからは `npm run dev:backend` でも起動できます。
+上記は `backend` ディレクトリ内で実行します。
 
 ## Scripts
 
