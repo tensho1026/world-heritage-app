@@ -1,0 +1,12 @@
+{
+  "name": "world-heritage-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "prepare": "husky",
+    "lint": "npm --prefix frontend run lint && npm --prefix backend run lint"
+  },
+  "devDependencies": {
+    "husky": "^9.1.7"
+  }
+}
