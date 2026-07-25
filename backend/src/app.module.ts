@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { createTypeOrmModuleOptions } from './database/typeorm.options';
 import { WorldHeritageSite } from './database/entities/world-heritage-site.entity';
 import { HeritageImportModule } from './api/import/heritage-import/heritage-import.module';
+import { RandomHeritageModule } from './api/random-heritage/random-heritage.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { HeritageImportModule } from './api/import/heritage-import/heritage-impo
     }),
     TypeOrmModule.forFeature([WorldHeritageSite]),
     HeritageImportModule,
+    RandomHeritageModule,
   ],
   controllers: [AppController],
   providers: [AppService],
