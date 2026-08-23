@@ -1,270 +1,741 @@
-import { Link } from 'react-router-dom'
-import * as AspectRatio from '@radix-ui/react-aspect-ratio'
-import * as Separator from '@radix-ui/react-separator'
-import { Slot } from '@radix-ui/react-slot'
-import * as Tooltip from '@radix-ui/react-tooltip'
-import { useRandomHeritage } from '../hooks/useRandomHeritage'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { getApiErrorMessage } from '../api/client'
+import {
+  getHeritage,
+  getLearningState,
+  getRandomHeritage,
+  recordHeritageRead,
+  recordHeritageView,
+  undoHeritageRead,
+  updateComprehension,
+  updateFavorite,
+  updateReadLater,
+} from '../api/heritage'
+import { translateArticle } from '../api/translations'
+import { AppShell } from '../components/AppShell'
+import { PageError, PageLoading } from '../components/AsyncState'
+import { SpeechControls } from '../components/SpeechControls'
+import {
+  SelectableText,
+  VocabularyCapture,
+} from '../components/VocabularyCapture'
+import { buildChatGptTranslationUrl } from '../lib/chatgpt'
+import type {
+  ArticleTranslation,
+  ComprehensionLevel,
+  HeritageMode,
+  LearningState,
+  WorldHeritageSite,
+} from '../types'
+
+const comprehensionOptions: Array<{
+  value: ComprehensionLevel
+  label: string
+  symbol: string
+}> = [
+  { value: 'difficult', label: '難しかった', symbol: '△' },
+  { value: 'partial', label: 'だいたい分かった', symbol: '○' },
+  { value: 'understood', label: 'よく分かった', symbol: '◎' },
+]
 
 export default function RandomHeritagePage() {
-  const { data } = useRandomHeritage()
-  console.log('テスト', data)
-  return (
-    <Tooltip.Provider delayDuration={250}>
-      <main className="min-h-screen bg-[#fbf8f1] bg-[linear-gradient(90deg,transparent_0_49.95%,rgb(24_53_47_/_3%)_50%,transparent_50.05%)] font-sans text-[#18352f] selection:bg-[#b85635] selection:text-[#fbf8f1]">
-        <header className="mx-auto flex min-h-[92px] w-[min(1240px,calc(100%-80px))] items-center justify-between border-b border-[#18352f]/20 max-[900px]:w-[min(calc(100%-40px),720px)] max-[580px]:min-h-20">
-          <Link
-            className="inline-flex items-center gap-[13px] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#c98c47]/45"
-            to="/"
-            aria-label="World Heritage Atlas ホーム"
-          >
-            <span
-              className="grid size-[42px] place-items-center rounded-full border border-current font-serif text-xs font-bold tracking-[-0.04em] max-[580px]:size-9"
-              aria-hidden="true"
-            >
-              WH
-            </span>
-            <span>
-              <span className="block font-serif text-base font-bold tracking-[0.01em] max-[580px]:text-[0.85rem]">
-                World Heritage Atlas
-              </span>
-              <span className="mt-1 block text-[0.56rem] font-bold tracking-[0.18em] text-[#18352f]/60 max-[580px]:hidden">
-                UNESCO DISCOVERY GUIDE
-              </span>
-            </span>
-          </Link>
+  const { id: routeId } = useParams<{ id: string }>()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
+  const queryClient = useQueryClient()
+  const [mode, setModeState] = useState<HeritageMode>(() => {
+    if (searchParams.get('mode') === 'famous') return 'famous'
+    return window.localStorage.getItem('heritage-mode') === 'famous'
+      ? 'famous'
+      : 'all'
+  })
+  const [randomSequence, setRandomSequence] = useState(0)
+  const [previousId, setPreviousId] = useState<string>()
+  const [showTranslation, setShowTranslation] = useState(false)
+  const [captureMode, setCaptureMode] = useState(false)
+  const [imageFailed, setImageFailed] = useState(false)
+  const [readNotice, setReadNotice] = useState<number | null>(null)
+  const viewedIdRef = useRef<string | undefined>(undefined)
 
-          <nav aria-label="ページナビゲーション">
-            <Slot className="inline-flex items-center gap-2 text-xs font-bold tracking-[0.06em] text-[#18352f]/70 hover:text-[#b85635] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#c98c47]/45 max-[580px]:text-[0]">
-              <Link to="/">
-                <svg
-                  className="w-4 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round] max-[580px]:w-[22px]"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-                ホームへ戻る
-              </Link>
-            </Slot>
-          </nav>
-        </header>
+  const heritageQuery = useQuery({
+    queryKey: routeId
+      ? ['heritage', routeId]
+      : ['heritage', 'random', mode, randomSequence],
+    queryFn: () =>
+      routeId ? getHeritage(routeId) : getRandomHeritage(mode, previousId),
+    staleTime: routeId ? 60_000 : 0,
+  })
+  const site = heritageQuery.data
+  const learningQuery = useQuery({
+    queryKey: ['learning-state', site?.uuid],
+    queryFn: () => getLearningState(site!.uuid),
+    enabled: Boolean(site),
+  })
+  const translationQuery = useQuery({
+    queryKey: ['article-translation', site?.uuid],
+    queryFn: () => translateArticle(site!.uuid),
+    enabled: false,
+    retry: false,
+  })
 
-        <section
-          className="mx-auto grid w-[min(1240px,calc(100%-80px))] grid-cols-[minmax(360px,0.82fr)_minmax(0,1fr)] items-center gap-[clamp(60px,8vw,116px)] py-[58px] pb-[72px] max-[900px]:w-[min(calc(100%-40px),720px)] max-[900px]:grid-cols-1 max-[900px]:gap-[62px] max-[900px]:pt-[42px] max-[580px]:gap-12 max-[580px]:py-[30px] max-[580px]:pb-14"
-          aria-labelledby="heritage-title"
-        >
-          <div className="relative max-w-[500px] after:absolute after:inset-[18px_-18px_-18px_18px] after:border after:border-[#b85635]/40 after:content-[''] max-[900px]:mx-auto max-[900px]:w-4/5 max-[580px]:ml-0 max-[580px]:w-[calc(100%-18px)]">
-            <AspectRatio.Root
-              ratio={4 / 5}
-              className="relative z-10 overflow-hidden bg-[#d9d0bd] shadow-[0_24px_55px_rgb(32_48_43_/_20%)]"
-            >
-              {/* <img
-                className="size-full object-cover"
-                src=""
-                alt="ウニアンガ湖群の湖と砂漠"
-              /> */}
-              <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,transparent_60%,rgb(15_35_31_/_70%)),linear-gradient(120deg,rgb(212_161_91_/_10%),transparent_50%)]" />
-              <p className="absolute right-6 bottom-5 left-6 m-0 text-right font-serif text-[0.67rem] italic text-white/80">
-                <span className="mb-[3px] block font-sans text-[0.55rem] font-extrabold tracking-[0.16em] text-white not-italic">
-                  LAKE BOUKOU
-                </span>
-                Photo: Sven Oehm
-              </p>
-            </AspectRatio.Root>
-          </div>
+  useEffect(() => {
+    if (!site || viewedIdRef.current === site.uuid) return
+    viewedIdRef.current = site.uuid
+    void recordHeritageView(site.uuid).then(() =>
+      queryClient.invalidateQueries({ queryKey: ['stats'] }),
+    )
+  }, [queryClient, site])
 
-          <div className="max-w-[630px]">
-            <div className="flex items-center justify-between gap-6 max-[580px]:items-start">
-              <div className="inline-flex min-h-[29px] items-center gap-2 rounded-full border border-[#18352f]/25 px-3 text-[0.68rem] font-bold">
-                <span className="size-[7px] rounded-full bg-[#4f8871]" />
-                自然遺産
-              </div>
-              <span className="text-[0.6rem] font-bold tracking-[0.15em] text-[#18352f]/50">
-                UNESCO ID 1400
-              </span>
-            </div>
+  useEffect(() => {
+    if (readNotice === null) return
+    const timeout = window.setTimeout(() => setReadNotice(null), 30_000)
+    return () => window.clearTimeout(timeout)
+  }, [readNotice])
 
-            <p className="mt-[42px] flex items-center gap-2 text-[0.68rem] font-extrabold tracking-[0.18em] text-[#b85635] max-[580px]:mt-[34px]">
-              <svg
-                className="w-4 fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-                viewBox="0 0 24 24"
-                aria-hidden="true"
-              >
-                <path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z" />
-                <circle cx="12" cy="10" r="2.5" />
-              </svg>
-              AFRICA · CHAD
-            </p>
+  const learningMutation = useMutation({
+    mutationFn: (operation: () => Promise<LearningState>) => operation(),
+    onSuccess: (data) => {
+      queryClient.setQueryData<LearningState>(
+        ['learning-state', data.heritageSiteId],
+        (current) => ({ ...data, readCount: current?.readCount }),
+      )
+      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({ queryKey: ['favorites'] })
+      void queryClient.invalidateQueries({ queryKey: ['read-later'] })
+    },
+  })
+  const readMutation = useMutation({
+    mutationFn: () => recordHeritageRead(site!.uuid),
+    onSuccess: (record) => {
+      setReadNotice(record.id)
+      queryClient.setQueryData<LearningState>(
+        ['learning-state', site!.uuid],
+        (current) =>
+          current
+            ? {
+                ...current,
+                isReadLater: false,
+                readCount: (current.readCount ?? 0) + 1,
+              }
+            : current,
+      )
+      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({ queryKey: ['history'] })
+      void queryClient.invalidateQueries({ queryKey: ['read-later'] })
+    },
+  })
+  const undoMutation = useMutation({
+    mutationFn: (readId: number) => undoHeritageRead(site!.uuid, readId),
+    onSuccess: () => {
+      setReadNotice(null)
+      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({ queryKey: ['history'] })
+      void queryClient.invalidateQueries({
+        queryKey: ['learning-state', site!.uuid],
+      })
+    },
+  })
 
-            <h1
-              id="heritage-title"
-              className="mt-4 font-['Yu_Mincho','Hiragino_Mincho_ProN',Georgia,serif] text-[clamp(2.5rem,4.2vw,4.5rem)] leading-[1.15] font-medium tracking-[-0.055em] max-[580px]:text-[2.75rem]"
-            >
-              ウニアンガ湖群
-            </h1>
-            <p className="mt-3 font-serif text-[1.16rem] italic text-[#18352f]/60">
-              Lakes of Ounianga
-            </p>
+  function changeMode(nextMode: HeritageMode) {
+    window.localStorage.setItem('heritage-mode', nextMode)
+    setModeState(nextMode)
+    setSearchParams(nextMode === 'famous' ? { mode: 'famous' } : {})
+    setPreviousId(site?.uuid)
+    setRandomSequence((value) => value + 1)
+  }
 
-            <p className="mt-7 max-w-[580px] font-['Yu_Mincho','Hiragino_Mincho_ProN',Georgia,serif] text-[0.98rem] leading-8 text-[#18352f]/75">
-              サハラ砂漠の超乾燥地域に浮かぶ、色彩豊かな18の湖。地下水に育まれた湖と砂丘が、
-              世界でも類を見ない景観をつくり出しています。
-            </p>
+  function showNext() {
+    setShowTranslation(false)
+    setCaptureMode(false)
+    setImageFailed(false)
+    setReadNotice(null)
+    if (routeId) {
+      navigate(`/random-heritage${mode === 'famous' ? '?mode=famous' : ''}`)
+      return
+    }
+    setPreviousId(site?.uuid)
+    setRandomSequence((value) => value + 1)
+  }
 
-            <div
-              className="mt-[34px] flex items-stretch border-y border-[#18352f]/20 py-5"
-              aria-label="基本情報"
-            >
-              <div className="min-w-0 flex-1">
-                <span className="mb-2 block text-[0.62rem] font-bold tracking-[0.1em] text-[#18352f]/50">
-                  登録年
-                </span>
-                <strong className="font-serif text-[1.24rem] font-medium max-[580px]:text-[1.03rem]">
-                  2012
-                </strong>
-              </div>
-              <Separator.Root
-                className="mx-6 w-px bg-[#18352f]/20 max-[580px]:mx-3.5"
-                decorative
-                orientation="vertical"
-              />
-              <div className="min-w-0 flex-1">
-                <span className="mb-2 block text-[0.62rem] font-bold tracking-[0.1em] text-[#18352f]/50">
-                  登録基準
-                </span>
-                <strong className="font-serif text-[1.24rem] font-medium max-[580px]:text-[1.03rem]">
-                  (vii)
-                </strong>
-              </div>
-              <Separator.Root
-                className="mx-6 w-px bg-[#18352f]/20 max-[580px]:mx-3.5"
-                decorative
-                orientation="vertical"
-              />
-              <div className="min-w-0 flex-1">
-                <span className="mb-2 block text-[0.62rem] font-bold tracking-[0.1em] text-[#18352f]/50">
-                  面積
-                </span>
-                <strong className="font-serif text-[1.24rem] font-medium max-[580px]:text-[1.03rem]">
-                  62,808{' '}
-                  <small className="text-[0.68rem] font-normal">ha</small>
-                </strong>
-              </div>
-            </div>
+  async function toggleTranslation() {
+    if (showTranslation) return setShowTranslation(false)
+    const result = translationQuery.data
+      ? { data: translationQuery.data }
+      : await translationQuery.refetch()
+    if (result.data) setShowTranslation(true)
+  }
 
-            <Tooltip.Root>
-              <Tooltip.Trigger asChild>
-                <button
-                  className="mt-[31px] inline-flex min-h-[58px] items-center justify-center gap-[22px] rounded-[2px] border border-[#18352f] bg-[#18352f] px-6 text-[0.84rem] font-bold tracking-[0.08em] text-[#fbf8f1] shadow-[5px_5px_0_#c98c47] transition-[transform,box-shadow,background-color] duration-200 hover:translate-x-0.5 hover:translate-y-0.5 hover:bg-[#21473f] hover:shadow-[3px_3px_0_#c98c47] focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#c98c47]/45 motion-reduce:transition-none max-[580px]:w-full max-[580px]:px-[18px]"
-                  type="button"
-                >
-                  次の世界遺産へ
-                  <svg
-                    className="w-[19px] fill-none stroke-current stroke-[1.7] [stroke-linecap:round] [stroke-linejoin:round]"
-                    viewBox="0 0 24 24"
-                    aria-hidden="true"
-                  >
-                    <path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5" />
-                  </svg>
-                </button>
-              </Tooltip.Trigger>
-              <Tooltip.Portal>
-                <Tooltip.Content
-                  className="rounded-[3px] bg-[#18352f] px-[11px] py-2 text-[0.68rem] text-[#fbf8f1] shadow-[0_8px_24px_rgb(20_35_31_/_18%)]"
-                  sideOffset={8}
-                >
-                  ランダムにもう一件表示
-                  <Tooltip.Arrow className="fill-[#18352f]" />
-                </Tooltip.Content>
-              </Tooltip.Portal>
-            </Tooltip.Root>
-            <p className="mt-3 ml-1 text-[0.62rem] text-[#18352f]/45">
-              このボタンはUIサンプルです
-            </p>
-          </div>
-        </section>
-
-        <Separator.Root
-          className="mx-auto block h-px w-[min(1240px,calc(100%-80px))] bg-[#18352f]/20 max-[900px]:w-[min(calc(100%-40px),720px)]"
-          decorative
+  if (heritageQuery.isPending) {
+    return (
+      <AppShell>
+        <PageLoading label="次の世界遺産を探しています" />
+      </AppShell>
+    )
+  }
+  if (heritageQuery.isError || !site) {
+    return (
+      <AppShell>
+        <PageError
+          message={getApiErrorMessage(heritageQuery.error)}
+          onRetry={() => heritageQuery.refetch()}
         />
+      </AppShell>
+    )
+  }
 
-        <section
-          className="mx-auto grid w-[min(1240px,calc(100%-80px))] grid-cols-[minmax(0,1fr)_360px] gap-[clamp(70px,10vw,150px)] py-[72px] pb-[86px] max-[900px]:w-[min(calc(100%-40px),720px)] max-[900px]:grid-cols-1 max-[900px]:gap-[58px] max-[580px]:py-[54px] max-[580px]:pb-16"
-          aria-label="世界遺産の詳細"
-        >
-          <article className="grid grid-cols-[44px_minmax(0,1fr)] gap-7 max-[580px]:grid-cols-1 max-[580px]:gap-2.5">
-            <p className="mt-px font-serif text-[0.88rem] italic text-[#c98c47]">
-              01
-            </p>
-            <div>
-              <p className="m-0 text-[0.7rem] font-extrabold tracking-[0.22em] text-[#b85635] uppercase">
-                ABOUT THE SITE
-              </p>
-              <h2 className="mt-[15px] mb-[26px] font-['Yu_Mincho','Hiragino_Mincho_ProN',Georgia,serif] text-[clamp(1.7rem,2.6vw,2.65rem)] font-medium tracking-[-0.035em]">
-                砂漠の中で、水が描く奇跡。
-              </h2>
-              <p className="mb-4 text-[0.9rem] leading-[2.05] text-[#18352f]/75">
-                サハラ砂漠のエネディ地方、62,808ヘクタールに広がる18の湖で構成されています。
-                塩湖・高塩湖・淡水湖が地下水によって保たれ、約40km離れた2つの湖群を形成しています。
-              </p>
-              <p className="mb-4 text-[0.9rem] leading-[2.05] text-[#18352f]/75">
-                青や緑、赤みを帯びた水面、湖を分ける砂丘、浮かぶ葦の緑。
-                厳しい乾燥地帯にありながら、一部の淡水湖では魚などの水生生物も暮らしています。
-              </p>
+  const learning = learningQuery.data
+  const translation = translationQuery.data
+  const imageUrl = site.mainImageUrl ?? site.wikipediaImageUrl
+  const imageSourceUrl = site.mainImageSourceUrl ?? site.wikipediaPageUrl
+  const criteria = [...site.culturalCriteria, ...site.naturalCriteria]
+  const speechText = [
+    site.nameEn,
+    site.shortDescriptionEn,
+    site.descriptionEn,
+    site.justificationEn,
+  ]
+    .filter(Boolean)
+    .join('. ')
+
+  return (
+    <AppShell>
+      <section className="mx-auto w-[min(1240px,calc(100%-48px))] py-10 max-[760px]:w-[min(100%-32px,720px)]">
+        {!routeId && <ModeSelector mode={mode} onChange={changeMode} />}
+
+        <div className="grid grid-cols-[minmax(320px,0.82fr)_minmax(0,1fr)] items-center gap-[clamp(48px,7vw,100px)] max-[900px]:grid-cols-1">
+          <figure className="m-0">
+            <div className="aspect-[4/5] overflow-hidden bg-[#d9d0bd] shadow-[0_24px_55px_rgb(32_48_43_/_18%)]">
+              {imageUrl && !imageFailed ? (
+                <img
+                  className="size-full object-cover"
+                  src={imageUrl}
+                  alt={site.mainImageCaptionEn ?? site.nameEn}
+                  onError={() => setImageFailed(true)}
+                />
+              ) : (
+                <ImagePlaceholder />
+              )}
             </div>
+            <figcaption className="mt-3 text-right text-[0.62rem] leading-5 text-[#18352f]/50">
+              {site.mainImageCaptionEn && (
+                <span>{site.mainImageCaptionEn} </span>
+              )}
+              {site.mainImageAuthor && (
+                <span>Photo: {site.mainImageAuthor} </span>
+              )}
+              {imageSourceUrl && (
+                <a
+                  className="underline hover:text-[#b85635]"
+                  href={imageSourceUrl}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  Source
+                </a>
+              )}
+            </figcaption>
+          </figure>
+
+          <div>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <span className="rounded-full border border-[#18352f]/25 px-3 py-1.5 text-[0.65rem] font-bold">
+                {categoryLabel(site.category)}
+              </span>
+              <span className="text-[0.58rem] font-bold tracking-[0.14em] text-[#18352f]/45">
+                UNESCO ID {site.unescoId}
+              </span>
+            </div>
+            <p className="mt-10 text-[0.68rem] font-extrabold tracking-[0.17em] text-[#b85635] uppercase">
+              {site.region ?? 'WORLD'} · {site.statesNames.join(' / ')}
+            </p>
+            <h1 className="mt-4 font-serif text-[clamp(2.7rem,5vw,4.8rem)] leading-[1.08] font-medium tracking-[-0.04em]">
+              {site.nameEn}
+            </h1>
+            {showTranslation && translation?.nameEn && (
+              <p className="mt-3 font-serif text-xl text-[#b85635]">
+                {translation.nameEn}
+              </p>
+            )}
+            {site.shortDescriptionEn && (
+              <VocabularyCapture
+                enabled={captureMode}
+                heritageSiteId={site.uuid}
+              >
+                <SelectableText
+                  className="mt-7 text-base leading-8 text-[#18352f]/72"
+                  text={site.shortDescriptionEn}
+                  sectionType="short-description"
+                />
+              </VocabularyCapture>
+            )}
+            {showTranslation && translation?.shortDescriptionEn && (
+              <JapaneseTranslation text={translation.shortDescriptionEn} />
+            )}
+            <Facts site={site} criteria={criteria} />
+          </div>
+        </div>
+
+        <ActionBar
+          captureMode={captureMode}
+          learning={learning}
+          site={site}
+          showTranslation={showTranslation}
+          translating={translationQuery.isFetching}
+          onCapture={() => setCaptureMode((value) => !value)}
+          onFavorite={() =>
+            learningMutation.mutate(() =>
+              updateFavorite(site.uuid, !learning?.isFavorite),
+            )
+          }
+          onReadLater={() =>
+            learningMutation.mutate(() =>
+              updateReadLater(site.uuid, !learning?.isReadLater),
+            )
+          }
+          onTranslate={toggleTranslation}
+        />
+        {translationQuery.isError && (
+          <p className="mt-3 text-xs text-[#b85635]">
+            {getApiErrorMessage(translationQuery.error)}
+          </p>
+        )}
+
+        <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-[clamp(50px,8vw,120px)] py-16 max-[900px]:grid-cols-1">
+          <article>
+            <p className="text-[0.65rem] font-extrabold tracking-[0.2em] text-[#b85635] uppercase">
+              ABOUT THE SITE
+            </p>
+            <h2 className="mt-4 font-serif text-[clamp(2rem,3vw,3rem)]">
+              Read the story in English.
+            </h2>
+            <div className="mt-7">
+              <SpeechControls text={speechText} />
+            </div>
+            <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
+              <div className="mt-9 space-y-6">
+                {paragraphs(site.descriptionEn).map((paragraph, index) => (
+                  <SelectableText
+                    className="text-[1.02rem] leading-[2.05] text-[#18352f]/78"
+                    key={`description-${index}`}
+                    text={paragraph}
+                    sectionType="description"
+                  />
+                ))}
+                {showTranslation && translation?.descriptionEn && (
+                  <JapaneseTranslation text={translation.descriptionEn} />
+                )}
+              </div>
+              {site.justificationEn && (
+                <div className="mt-12 border-l-2 border-[#c98c47] pl-6">
+                  <h3 className="font-serif text-xl">Why it was inscribed</h3>
+                  <SelectableText
+                    className="mt-4 text-sm leading-7 text-[#18352f]/70"
+                    text={site.justificationEn}
+                    sectionType="justification"
+                  />
+                  {showTranslation && translation?.justificationEn && (
+                    <JapaneseTranslation text={translation.justificationEn} />
+                  )}
+                </div>
+              )}
+            </VocabularyCapture>
           </article>
 
-          <aside className="border-l border-[#18352f]/20 pl-10 max-[900px]:border-0 max-[900px]:p-0">
-            <div>
-              <p className="m-0 text-[0.7rem] font-extrabold tracking-[0.22em] text-[#b85635] uppercase">
-                LOCATION
-              </p>
-              <p className="my-[14px] mb-[18px] font-serif text-[1.22rem] leading-[1.55]">
-                19.0550° N
-                <br />
-                20.5056° E
-              </p>
-              <div
-                className="relative h-[120px] overflow-hidden border border-[#18352f]/15 bg-[#e7e0d1]"
-                aria-label="アフリカ、チャド北東部"
-              >
-                <span className="absolute inset-0 bg-[linear-gradient(rgb(24_53_47_/_9%)_1px,transparent_1px),linear-gradient(90deg,rgb(24_53_47_/_9%)_1px,transparent_1px)] bg-[length:24px_24px]" />
-                <span className="absolute top-[29px] left-[56%] grid size-8 -rotate-45 place-items-center rounded-[50%_50%_50%_0] border border-[#b85635] bg-[#fbf8f1]">
-                  <span className="size-[7px] rounded-full bg-[#b85635]" />
-                </span>
-                <span className="absolute right-[9px] bottom-[7px] text-[0.5rem] font-extrabold tracking-[0.12em] text-[#18352f]/55">
-                  NORTH-EASTERN CHAD
-                </span>
-              </div>
-            </div>
-
-            <Separator.Root
-              className="my-[34px] block h-px bg-[#18352f]/20"
-              decorative
-            />
-
-            <div>
-              <p className="m-0 text-[0.7rem] font-extrabold tracking-[0.22em] text-[#b85635] uppercase">
-                HERITAGE CRITERIA
-              </p>
-              <div className="mt-[17px] flex items-start gap-4">
-                <span className="grid size-11 shrink-0 place-items-center rounded-full border border-[#b85635] font-serif text-[0.82rem] text-[#b85635]">
-                  VII
-                </span>
-                <p className="m-0 text-[0.78rem] leading-[1.85] text-[#18352f]/70">
-                  最上級の自然現象、または類まれな自然美・美的価値を有する地域。
-                </p>
-              </div>
-            </div>
-          </aside>
+          <ReaderSidebar
+            captureMode={captureMode}
+            learning={learning}
+            mutationPending={learningMutation.isPending}
+            site={site}
+            showTranslation={showTranslation}
+            translation={translation}
+            onComprehension={(value) =>
+              learningMutation.mutate(() =>
+                updateComprehension(site.uuid, value),
+              )
+            }
+          />
         </section>
 
-        <footer className="mx-auto flex min-h-[76px] w-[min(1240px,calc(100%-80px))] items-center justify-between border-t border-[#18352f]/20 text-[0.62rem] font-bold tracking-[0.16em] text-[#18352f]/50 uppercase max-[900px]:w-[min(calc(100%-40px),720px)] max-[580px]:flex-col max-[580px]:items-start max-[580px]:justify-center max-[580px]:gap-[7px] [&_p]:m-0">
-          <p>WORLD HERITAGE ATLAS</p>
-          <p>One place at a time.</p>
-        </footer>
-      </main>
-    </Tooltip.Provider>
+        {(site.mainVideoUrl || site.videoUrls[0]) && (
+          <section className="border-t border-[#18352f]/15 py-12">
+            <h2 className="font-serif text-2xl">Related video</h2>
+            <video
+              className="mt-5 max-h-[620px] w-full bg-black"
+              controls
+              preload="metadata"
+              src={site.mainVideoUrl ?? site.videoUrls[0]}
+            />
+          </section>
+        )}
+
+        <section className="flex flex-wrap items-center justify-between gap-5 border-t border-[#18352f]/15 py-10">
+          <div>
+            <p className="text-xs font-bold">読み終わったら記録しましょう</p>
+            <p className="mt-1 text-xs text-[#18352f]/50">
+              同じ世界遺産の再読も回数に含まれます。
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              className="border border-[#b85635] bg-[#b85635] px-6 py-3 text-xs font-bold text-white disabled:opacity-50"
+              disabled={readMutation.isPending}
+              onClick={() => readMutation.mutate()}
+              type="button"
+            >
+              {readMutation.isPending
+                ? '記録中…'
+                : learning?.readCount
+                  ? 'もう一度読了として記録'
+                  : '読了にする'}
+            </button>
+            <button
+              className="border border-[#18352f] bg-[#18352f] px-6 py-3 text-xs font-bold text-white"
+              onClick={showNext}
+              type="button"
+            >
+              {routeId ? 'ランダムに読む' : '次の世界遺産へ'} →
+            </button>
+          </div>
+        </section>
+
+        {readNotice !== null && (
+          <div
+            className="fixed right-5 bottom-5 z-50 flex items-center gap-4 bg-[#18352f] px-5 py-4 text-xs text-white shadow-xl"
+            role="status"
+          >
+            読了を記録しました
+            <button
+              className="font-bold text-[#e7c778] underline disabled:opacity-50"
+              disabled={undoMutation.isPending}
+              onClick={() => undoMutation.mutate(readNotice)}
+              type="button"
+            >
+              取り消す
+            </button>
+          </div>
+        )}
+        {(learningMutation.isError ||
+          readMutation.isError ||
+          undoMutation.isError) && (
+          <p className="fixed right-5 bottom-5 z-50 max-w-sm bg-[#b85635] px-5 py-4 text-xs text-white shadow-xl">
+            {getApiErrorMessage(
+              learningMutation.error ??
+                readMutation.error ??
+                undoMutation.error,
+            )}
+          </p>
+        )}
+        <Link
+          className="inline-block pb-8 text-xs font-bold text-[#18352f]/55 underline hover:text-[#b85635]"
+          to="/"
+        >
+          ← ホームへ戻る
+        </Link>
+      </section>
+    </AppShell>
   )
+}
+
+function ModeSelector({
+  mode,
+  onChange,
+}: {
+  mode: HeritageMode
+  onChange: (mode: HeritageMode) => void
+}) {
+  return (
+    <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[#18352f]/15 pb-5">
+      <div>
+        <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+          RANDOM READING MODE
+        </p>
+        <p className="mt-1 text-sm text-[#18352f]/60">
+          過去に読んだ世界遺産も抽選対象です
+        </p>
+      </div>
+      <div className="inline-flex border border-[#18352f]/20 p-1">
+        {(['all', 'famous'] as const).map((value) => (
+          <button
+            className={`px-4 py-2 text-xs font-bold ${
+              mode === value ? 'bg-[#18352f] text-white' : 'text-[#18352f]/60'
+            }`}
+            key={value}
+            onClick={() => onChange(value)}
+            type="button"
+          >
+            {value === 'all' ? 'すべて' : '有名な世界遺産'}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function Facts({
+  site,
+  criteria,
+}: {
+  site: WorldHeritageSite
+  criteria: string[]
+}) {
+  return (
+    <dl className="mt-8 grid grid-cols-3 border-y border-[#18352f]/15 py-5 text-sm max-[520px]:grid-cols-1 max-[520px]:gap-4">
+      <Fact label="登録年" value={site.dateInscribed?.toString() ?? '—'} />
+      <Fact
+        bordered
+        label="登録基準"
+        value={criteria.length ? criteria.map(formatCriterion).join(', ') : '—'}
+      />
+      <Fact
+        label="面積"
+        value={
+          site.areaHectares ? `${site.areaHectares.toLocaleString()} ha` : '—'
+        }
+      />
+    </dl>
+  )
+}
+
+function Fact({
+  label,
+  value,
+  bordered = false,
+}: {
+  label: string
+  value: string
+  bordered?: boolean
+}) {
+  return (
+    <div
+      className={
+        bordered
+          ? 'border-x border-[#18352f]/15 px-6 max-[520px]:border-0 max-[520px]:px-0'
+          : 'px-6 first:pl-0 last:pr-0 max-[520px]:px-0'
+      }
+    >
+      <dt className="text-[0.58rem] font-bold tracking-[0.12em] text-[#18352f]/45">
+        {label}
+      </dt>
+      <dd className="mt-2 font-serif text-xl">{value}</dd>
+    </div>
+  )
+}
+
+function ActionBar({
+  site,
+  learning,
+  captureMode,
+  showTranslation,
+  translating,
+  onCapture,
+  onTranslate,
+  onFavorite,
+  onReadLater,
+}: {
+  site: WorldHeritageSite
+  learning?: LearningState
+  captureMode: boolean
+  showTranslation: boolean
+  translating: boolean
+  onCapture: () => void
+  onTranslate: () => void
+  onFavorite: () => void
+  onReadLater: () => void
+}) {
+  const button = 'border px-4 py-2.5 text-xs font-bold disabled:opacity-50'
+  return (
+    <div className="mt-12 border-y border-[#18352f]/15 py-5">
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          className={`${button} border-[#18352f] bg-[#18352f] text-white`}
+          disabled={translating}
+          onClick={onTranslate}
+          type="button"
+        >
+          {translating
+            ? 'DeepLで翻訳中…'
+            : showTranslation
+              ? '英語だけに戻す'
+              : '日本語訳を表示'}
+        </button>
+        <a
+          className={`${button} border-[#b85635] text-[#b85635] hover:bg-[#b85635] hover:text-white`}
+          href={buildChatGptTranslationUrl(site)}
+          rel="noreferrer"
+          target="_blank"
+        >
+          AIで全文翻訳 ↗
+        </a>
+        <button
+          className={`${button} ${captureMode ? 'border-[#c98c47] bg-[#c98c47]' : 'border-[#18352f]/25'}`}
+          onClick={onCapture}
+          type="button"
+          aria-pressed={captureMode}
+        >
+          {captureMode ? '単語記録モード ON' : '単語を記録する'}
+        </button>
+        <button
+          className={`${button} ${learning?.isFavorite ? 'border-[#b85635] bg-[#b85635]/10 text-[#b85635]' : 'border-[#18352f]/25'}`}
+          disabled={!learning}
+          onClick={onFavorite}
+          type="button"
+          aria-pressed={learning?.isFavorite ?? false}
+        >
+          {learning?.isFavorite ? '♥ お気に入り済み' : '♡ お気に入り'}
+        </button>
+        <button
+          className={`${button} ${learning?.isReadLater ? 'border-[#4f8871] bg-[#4f8871]/10 text-[#315f4c]' : 'border-[#18352f]/25'}`}
+          disabled={!learning}
+          onClick={onReadLater}
+          type="button"
+          aria-pressed={learning?.isReadLater ?? false}
+        >
+          {learning?.isReadLater ? '✓ 後で読むに保存済み' : '＋ 後で読む'}
+        </button>
+      </div>
+      {captureMode && (
+        <p className="mt-3 text-xs leading-5 text-[#18352f]/60">
+          単語はクリック、句動詞や複数語はドラッグまたは長押しで選択してください。
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ReaderSidebar({
+  site,
+  learning,
+  captureMode,
+  showTranslation,
+  translation,
+  mutationPending,
+  onComprehension,
+}: {
+  site: WorldHeritageSite
+  learning?: LearningState
+  captureMode: boolean
+  showTranslation: boolean
+  translation?: ArticleTranslation
+  mutationPending: boolean
+  onComprehension: (value: ComprehensionLevel) => void
+}) {
+  return (
+    <aside className="space-y-9 border-l border-[#18352f]/15 pl-9 max-[900px]:border-0 max-[900px]:pl-0">
+      <div>
+        <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+          UNDERSTANDING
+        </p>
+        <p className="mt-2 text-xs text-[#18352f]/55">
+          今回の記事の理解度を記録
+        </p>
+        <div className="mt-4 grid gap-2">
+          {comprehensionOptions.map((option) => (
+            <button
+              className={`flex items-center justify-between border px-4 py-3 text-left text-xs font-bold ${learning?.comprehensionLevel === option.value ? 'border-[#b85635] bg-[#b85635]/8 text-[#b85635]' : 'border-[#18352f]/20'}`}
+              disabled={!learning || mutationPending}
+              key={option.value}
+              onClick={() => onComprehension(option.value)}
+              type="button"
+            >
+              {option.label} <span>{option.symbol}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div>
+        <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+          LOCATION
+        </p>
+        <p className="mt-3 font-serif text-xl leading-8">
+          {coordinate(site.latitude, 'N', 'S')}
+          <br />
+          {coordinate(site.longitude, 'E', 'W')}
+        </p>
+      </div>
+      {site.criteriaText && (
+        <div>
+          <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+            HERITAGE CRITERIA
+          </p>
+          <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
+            <SelectableText
+              className="mt-3 text-xs leading-6 text-[#18352f]/65"
+              text={site.criteriaText}
+              sectionType="criteria"
+            />
+          </VocabularyCapture>
+          {showTranslation && translation?.criteriaText && (
+            <JapaneseTranslation text={translation.criteriaText} />
+          )}
+        </div>
+      )}
+      {site.danger && (
+        <div className="border border-[#b85635]/35 bg-[#b85635]/6 p-4">
+          <p className="text-xs font-bold text-[#b85635]">
+            危機遺産リスト掲載中
+          </p>
+          {site.dangerList && (
+            <p className="mt-2 text-xs leading-5 text-[#18352f]/60">
+              {site.dangerList}
+            </p>
+          )}
+        </div>
+      )}
+    </aside>
+  )
+}
+
+function JapaneseTranslation({ text }: { text: string }) {
+  return (
+    <div className="mt-4 border-l-2 border-[#b85635]/45 bg-white/45 px-5 py-4">
+      <p className="mb-2 text-[0.58rem] font-bold tracking-[0.14em] text-[#b85635]">
+        DEEPL 日本語訳
+      </p>
+      {paragraphs(text).map((paragraph, index) => (
+        <p className="mt-2 text-sm leading-7 text-[#18352f]/72" key={index}>
+          {paragraph}
+        </p>
+      ))}
+    </div>
+  )
+}
+
+function ImagePlaceholder() {
+  return (
+    <div className="grid size-full place-items-center bg-[linear-gradient(145deg,#d9d0bd,#8aa098)] text-center text-white/80">
+      <div>
+        <span className="block text-5xl">◇</span>
+        <span className="mt-3 block text-xs tracking-[0.14em]">
+          IMAGE UNAVAILABLE
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function paragraphs(text: string | null) {
+  return text
+    ? text
+        .split(/\n\s*\n/)
+        .map((value) => value.trim())
+        .filter(Boolean)
+    : []
+}
+
+function categoryLabel(category: WorldHeritageSite['category']) {
+  return { Cultural: '文化遺産', Natural: '自然遺産', Mixed: '複合遺産' }[
+    category
+  ]
+}
+
+function formatCriterion(value: string) {
+  return `(${value.replace(/^[cn]/, '')})`
+}
+
+function coordinate(value: number | null, positive: string, negative: string) {
+  return value === null
+    ? '—'
+    : `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`
 }

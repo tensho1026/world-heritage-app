@@ -104,7 +104,10 @@ export class HeritageService {
   async getLearningState(heritageSiteId: string) {
     await this.requireSite(heritageSiteId);
     const state = await this.learningRepository.findOneBy({ heritageSiteId });
-    return state ?? this.defaultLearningState(heritageSiteId);
+    const readCount = await this.readRepository.count({
+      where: { heritageSiteId },
+    });
+    return { ...(state ?? this.defaultLearningState(heritageSiteId)), readCount };
   }
 
   async updateComprehension(
