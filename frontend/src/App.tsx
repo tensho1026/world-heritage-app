@@ -1,4 +1,5 @@
 import { Route, Routes } from 'react-router-dom'
+import { lazy, Suspense } from 'react'
 
 import RandomHeritagePage from './pages/RandomHeritagePage'
 import HomePage from './pages/HomePage'
@@ -6,6 +7,10 @@ import VocabularyPage from './pages/VocabularyPage'
 import MemorizePage from './pages/MemorizePage'
 import CollectionPage from './pages/CollectionPage'
 import StatsPage from './pages/StatsPage'
+import ExplorePage from './pages/ExplorePage'
+import ThemesPage from './pages/ThemesPage'
+
+const MapPage = lazy(() => import('./pages/MapPage'))
 
 function App() {
   return (
@@ -16,6 +21,22 @@ function App() {
       <Route path="/vocabulary" element={<VocabularyPage />} />
       <Route path="/memorize" element={<MemorizePage />} />
       <Route path="/stats" element={<StatsPage />} />
+      <Route path="/explore" element={<ExplorePage />} />
+      <Route path="/themes" element={<ThemesPage />} />
+      <Route
+        path="/map"
+        element={
+          <Suspense
+            fallback={
+              <div className="grid min-h-screen place-items-center bg-[#fbf8f1] text-sm text-[#18352f]">
+                世界地図を準備しています…
+              </div>
+            }
+          >
+            <MapPage />
+          </Suspense>
+        }
+      />
       <Route path="/favorites" element={<CollectionPage kind="favorites" />} />
       <Route
         path="/read-later"

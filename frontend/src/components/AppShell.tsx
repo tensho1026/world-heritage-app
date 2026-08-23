@@ -4,11 +4,11 @@ import { Link, NavLink } from 'react-router-dom'
 const navigation = [
   { to: '/', label: 'ホーム' },
   { to: '/random-heritage', label: '読む' },
+  { to: '/explore', label: '探す' },
+  { to: '/map', label: '地図' },
   { to: '/vocabulary', label: '単語帳' },
   { to: '/memorize', label: '暗記' },
   { to: '/stats', label: '記録' },
-  { to: '/favorites', label: 'お気に入り' },
-  { to: '/read-later', label: '後で読む' },
 ]
 
 export function AppShell({ children }: { children: ReactNode }) {

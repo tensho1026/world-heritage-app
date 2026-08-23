@@ -5,6 +5,8 @@ import { getHistory, getStats } from '../api/heritage'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
 import type { ComprehensionLevel } from '../types'
+import { LearningCalendarPanel } from '../components/LearningCalendarPanel'
+import { WeeklyReportPanel } from '../components/WeeklyReportPanel'
 
 const comprehensionLabels: Record<ComprehensionLevel, string> = {
   difficult: '難しかった',
@@ -99,6 +101,11 @@ export default function StatsPage() {
               </p>
             )}
           </Breakdown>
+        </div>
+
+        <div className="mt-12 grid grid-cols-2 items-start gap-8 max-[900px]:grid-cols-1">
+          <LearningCalendarPanel />
+          <WeeklyReportPanel />
         </div>
 
         <section className="mt-14">

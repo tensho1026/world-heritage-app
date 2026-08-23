@@ -18,26 +18,83 @@ export function SelectableText({
   sectionType,
   className,
   as: Component = 'p',
+  sectionKey,
+  highlights = [],
 }: {
   text: string
   sectionType: string
   className?: string
   as?: 'p' | 'span'
+  sectionKey?: string
+  highlights?: Array<{
+    id: number
+    startOffset: number
+    endOffset: number
+    noteJa: string
+    difficultyReason: string | null
+  }>
 }) {
-  const tokens = text.split(/(\b[A-Za-z]+(?:[’'-][A-Za-z]+)*\b)/g)
+  const ranges = highlights
+    .filter(
+      (item) =>
+        item.startOffset >= 0 &&
+        item.endOffset <= text.length &&
+        item.endOffset > item.startOffset,
+    )
+    .sort((a, b) => a.startOffset - b.startOffset)
+  const segments: Array<{
+    text: string
+    highlight?: (typeof ranges)[number]
+  }> = []
+  let cursor = 0
+  for (const range of ranges) {
+    if (range.startOffset < cursor) continue
+    if (range.startOffset > cursor) {
+      segments.push({ text: text.slice(cursor, range.startOffset) })
+    }
+    segments.push({
+      text: text.slice(range.startOffset, range.endOffset),
+      highlight: range,
+    })
+    cursor = range.endOffset
+  }
+  if (cursor < text.length) segments.push({ text: text.slice(cursor) })
+
+  const tokenized = (value: string, keyPrefix: string) =>
+    value.split(/(\b[A-Za-z]+(?:[’'-][A-Za-z]+)*\b)/g).map((token, index) =>
+      /^[A-Za-z]+(?:[’'-][A-Za-z]+)*$/.test(token) ? (
+        <span data-vocabulary-word="true" key={`${keyPrefix}-${index}`}>
+          {token}
+        </span>
+      ) : (
+        token
+      ),
+    )
   return (
     <Component
       className={className}
       data-section-type={sectionType}
+      data-highlight-section={sectionKey}
       data-source-text={text}
     >
-      {tokens.map((token, index) =>
-        /^[A-Za-z]+(?:[’'-][A-Za-z]+)*$/.test(token) ? (
-          <span data-vocabulary-word="true" key={`${token}-${index}`}>
-            {token}
-          </span>
+      {segments.map((segment, index) =>
+        segment.highlight ? (
+          <mark
+            className="rounded-sm bg-[#e7c778]/65 px-0.5 text-inherit"
+            data-highlight-id={segment.highlight.id}
+            key={`highlight-${segment.highlight.id}`}
+            title={
+              segment.highlight.noteJa ||
+              segment.highlight.difficultyReason ||
+              '保存したハイライト'
+            }
+          >
+            {tokenized(segment.text, `marked-${index}`)}
+          </mark>
         ) : (
-          token
+          <span key={`plain-${index}`}>
+            {tokenized(segment.text, `plain-${index}`)}
+          </span>
         ),
       )}
     </Component>

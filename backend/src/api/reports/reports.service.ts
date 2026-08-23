@@ -62,7 +62,29 @@ export class ReportsService {
     reads.forEach((item) => add(item.readAt, 'reads'));
     vocabulary.forEach((item) => add(item.createdAt, 'savedVocabulary'));
     reviews.forEach((item) => add(item.reviewedAt, 'reviews'));
-    return { month, days, activeDays: Object.keys(days).length };
+    const activityStart = new Date(Date.now() - 370 * 86_400_000);
+    const [recentReads, recentVocabulary, recentReviews] = await Promise.all([
+      this.readRepository.find({
+        where: { readAt: MoreThanOrEqual(activityStart) },
+      }),
+      this.vocabularyRepository.find({
+        where: { createdAt: MoreThanOrEqual(activityStart) },
+      }),
+      this.reviewRepository.find({
+        where: { reviewedAt: MoreThanOrEqual(activityStart) },
+      }),
+    ]);
+    const activeDates = new Set([
+      ...recentReads.map((item) => this.formatDay(item.readAt)),
+      ...recentVocabulary.map((item) => this.formatDay(item.createdAt)),
+      ...recentReviews.map((item) => this.formatDay(item.reviewedAt)),
+    ]);
+    return {
+      month,
+      days,
+      activeDays: Object.keys(days).length,
+      currentStreak: this.currentStreak(activeDates),
+    };
   }
 
   async getWeekly() {
@@ -190,5 +212,18 @@ export class ReportsService {
         .map((part) => [part.type, part.value]),
     );
     return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  private currentStreak(activeDates: Set<string>) {
+    let cursor = new Date();
+    if (!activeDates.has(this.formatDay(cursor))) {
+      cursor = new Date(cursor.getTime() - 86_400_000);
+    }
+    let streak = 0;
+    while (activeDates.has(this.formatDay(cursor))) {
+      streak += 1;
+      cursor = new Date(cursor.getTime() - 86_400_000);
+    }
+    return streak;
   }
 }

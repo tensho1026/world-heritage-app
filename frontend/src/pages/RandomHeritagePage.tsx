@@ -14,16 +14,24 @@ import {
   updateReadLater,
 } from '../api/heritage'
 import { translateArticle } from '../api/translations'
+import { getHighlights } from '../api/highlights'
 import { AppShell } from '../components/AppShell'
 import { PageError } from '../components/AsyncState'
 import { SpeechControls } from '../components/SpeechControls'
+import { HighlightCapture } from '../components/HighlightCapture'
+import { HighlightsPanel } from '../components/HighlightsPanel'
+import { ReadingQuiz } from '../components/ReadingQuiz'
+import { ReadingLevelControls } from '../components/ReadingLevelControls'
+import { ShadowingMode } from '../components/ShadowingMode'
 import {
   SelectableText,
   VocabularyCapture,
 } from '../components/VocabularyCapture'
 import { buildChatGptTranslationUrl } from '../lib/chatgpt'
+import { simplifyEnglish, type ReadingLevel } from '../lib/simplify-english'
 import type {
   ArticleTranslation,
+  ArticleHighlight,
   ComprehensionLevel,
   HeritageMode,
   LearningState,
@@ -55,6 +63,8 @@ export default function RandomHeritagePage() {
   const [previousId, setPreviousId] = useState<string>()
   const [showTranslation, setShowTranslation] = useState(false)
   const [captureMode, setCaptureMode] = useState(false)
+  const [highlightMode, setHighlightMode] = useState(false)
+  const [readingLevel, setReadingLevel] = useState<ReadingLevel>('original')
   const [imageFailed, setImageFailed] = useState(false)
   const [readNotice, setReadNotice] = useState<number | null>(null)
   const viewedIdRef = useRef<string | undefined>(undefined)
@@ -78,6 +88,11 @@ export default function RandomHeritagePage() {
     queryFn: () => translateArticle(site!.uuid),
     enabled: false,
     retry: false,
+  })
+  const highlightsQuery = useQuery({
+    queryKey: ['highlights', site?.uuid],
+    queryFn: () => getHighlights(site!.uuid),
+    enabled: Boolean(site),
   })
 
   useEffect(() => {
@@ -152,6 +167,8 @@ export default function RandomHeritagePage() {
   function showNext() {
     setShowTranslation(false)
     setCaptureMode(false)
+    setHighlightMode(false)
+    setReadingLevel('original')
     setImageFailed(false)
     setReadNotice(null)
     if (routeId) {
@@ -164,6 +181,7 @@ export default function RandomHeritagePage() {
 
   async function toggleTranslation() {
     if (showTranslation) return setShowTranslation(false)
+    setReadingLevel('original')
     const result = translationQuery.data
       ? { data: translationQuery.data }
       : await translationQuery.refetch()
@@ -193,11 +211,28 @@ export default function RandomHeritagePage() {
   const imageUrl = site.mainImageUrl ?? site.wikipediaImageUrl
   const imageSourceUrl = site.mainImageSourceUrl ?? site.wikipediaPageUrl
   const criteria = [...site.culturalCriteria, ...site.naturalCriteria]
+  const highlights = highlightsQuery.data ?? []
+  const highlightsFor = (sectionKey: string) =>
+    readingLevel === 'original'
+      ? highlights.filter((highlight) => highlight.sectionKey === sectionKey)
+      : []
+  const displayShortDescription = site.shortDescriptionEn
+    ? simplifyEnglish(site.shortDescriptionEn, readingLevel)
+    : null
+  const displayDescription = site.descriptionEn
+    ? simplifyEnglish(site.descriptionEn, readingLevel)
+    : null
+  const displayJustification = site.justificationEn
+    ? simplifyEnglish(site.justificationEn, readingLevel)
+    : null
+  const displayCriteria = site.criteriaText
+    ? simplifyEnglish(site.criteriaText, readingLevel)
+    : null
   const speechText = [
     site.nameEn,
-    site.shortDescriptionEn,
-    site.descriptionEn,
-    site.justificationEn,
+    displayShortDescription,
+    displayDescription,
+    displayJustification,
   ]
     .filter(Boolean)
     .join('. ')
@@ -266,31 +301,50 @@ export default function RandomHeritagePage() {
             <p className="mt-10 text-[0.68rem] font-extrabold tracking-[0.17em] text-[#b85635] uppercase">
               {site.region ?? 'WORLD'} · {site.statesNames.join(' / ')}
             </p>
-            <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
-              <h1 className="mt-4 font-serif text-[clamp(2.7rem,5vw,4.8rem)] leading-[1.08] font-medium tracking-[-0.04em]">
-                <SelectableText
-                  as="span"
-                  text={site.nameEn}
-                  sectionType="title"
-                />
-              </h1>
-            </VocabularyCapture>
+            <HighlightCapture
+              enabled={highlightMode}
+              heritageName={site.nameEn}
+              heritageSiteId={site.uuid}
+            >
+              <VocabularyCapture
+                enabled={captureMode}
+                heritageSiteId={site.uuid}
+              >
+                <h1 className="mt-4 font-serif text-[clamp(2.7rem,5vw,4.8rem)] leading-[1.08] font-medium tracking-[-0.04em]">
+                  <SelectableText
+                    as="span"
+                    highlights={highlightsFor('title')}
+                    sectionKey="title"
+                    text={site.nameEn}
+                    sectionType="title"
+                  />
+                </h1>
+              </VocabularyCapture>
+            </HighlightCapture>
             {showTranslation && translation?.nameEn && (
               <p className="mt-3 font-serif text-xl text-[#b85635]">
                 {translation.nameEn}
               </p>
             )}
-            {site.shortDescriptionEn && (
-              <VocabularyCapture
-                enabled={captureMode}
+            {displayShortDescription && (
+              <HighlightCapture
+                enabled={highlightMode}
+                heritageName={site.nameEn}
                 heritageSiteId={site.uuid}
               >
-                <SelectableText
-                  className="mt-7 text-base leading-8 text-[#18352f]/72"
-                  text={site.shortDescriptionEn}
-                  sectionType="short-description"
-                />
-              </VocabularyCapture>
+                <VocabularyCapture
+                  enabled={captureMode}
+                  heritageSiteId={site.uuid}
+                >
+                  <SelectableText
+                    className="mt-7 text-base leading-8 text-[#18352f]/72"
+                    highlights={highlightsFor('short-description')}
+                    sectionKey="short-description"
+                    text={displayShortDescription}
+                    sectionType="short-description"
+                  />
+                </VocabularyCapture>
+              </HighlightCapture>
             )}
             {showTranslation && translation?.shortDescriptionEn && (
               <JapaneseTranslation text={translation.shortDescriptionEn} />
@@ -301,11 +355,19 @@ export default function RandomHeritagePage() {
 
         <ActionBar
           captureMode={captureMode}
+          highlightMode={highlightMode}
           learning={learning}
           site={site}
           showTranslation={showTranslation}
           translating={translationQuery.isFetching}
-          onCapture={() => setCaptureMode((value) => !value)}
+          onCapture={() => {
+            setCaptureMode((value) => !value)
+            setHighlightMode(false)
+          }}
+          onHighlight={() => {
+            setHighlightMode((value) => !value)
+            setCaptureMode(false)
+          }}
           onFavorite={() =>
             learningMutation.mutate(() =>
               updateFavorite(site.uuid, !learning?.isFavorite),
@@ -332,46 +394,76 @@ export default function RandomHeritagePage() {
             <h2 className="mt-4 font-serif text-[clamp(2rem,3vw,3rem)]">
               Read the story in English.
             </h2>
+            <ReadingLevelControls
+              level={readingLevel}
+              onChange={(level) => {
+                setReadingLevel(level)
+                setShowTranslation(false)
+                setCaptureMode(false)
+                setHighlightMode(false)
+              }}
+              site={site}
+            />
             <div className="mt-7">
               <SpeechControls text={speechText} />
             </div>
-            <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
-              <div className="mt-9 space-y-6">
-                {paragraphs(site.descriptionEn).map((paragraph, index) => (
-                  <SelectableText
-                    className="text-[1.02rem] leading-[2.05] text-[#18352f]/78"
-                    key={`description-${index}`}
-                    text={paragraph}
-                    sectionType="description"
-                  />
-                ))}
-                {showTranslation && translation?.descriptionEn && (
-                  <JapaneseTranslation text={translation.descriptionEn} />
-                )}
-              </div>
-              {site.justificationEn && (
-                <div className="mt-12 border-l-2 border-[#c98c47] pl-6">
-                  <h3 className="font-serif text-xl">Why it was inscribed</h3>
-                  <SelectableText
-                    className="mt-4 text-sm leading-7 text-[#18352f]/70"
-                    text={site.justificationEn}
-                    sectionType="justification"
-                  />
-                  {showTranslation && translation?.justificationEn && (
-                    <JapaneseTranslation text={translation.justificationEn} />
+            <ShadowingMode text={speechText} />
+            <HighlightCapture
+              enabled={highlightMode}
+              heritageName={site.nameEn}
+              heritageSiteId={site.uuid}
+            >
+              <VocabularyCapture
+                enabled={captureMode}
+                heritageSiteId={site.uuid}
+              >
+                <div className="mt-9 space-y-6">
+                  {paragraphs(displayDescription).map((paragraph, index) => {
+                    const sectionKey = `description-${index}`
+                    return (
+                      <SelectableText
+                        className="text-[1.02rem] leading-[2.05] text-[#18352f]/78"
+                        highlights={highlightsFor(sectionKey)}
+                        key={sectionKey}
+                        sectionKey={sectionKey}
+                        text={paragraph}
+                        sectionType="description"
+                      />
+                    )
+                  })}
+                  {showTranslation && translation?.descriptionEn && (
+                    <JapaneseTranslation text={translation.descriptionEn} />
                   )}
                 </div>
-              )}
-            </VocabularyCapture>
+                {displayJustification && (
+                  <div className="mt-12 border-l-2 border-[#c98c47] pl-6">
+                    <h3 className="font-serif text-xl">Why it was inscribed</h3>
+                    <SelectableText
+                      className="mt-4 text-sm leading-7 text-[#18352f]/70"
+                      highlights={highlightsFor('justification')}
+                      sectionKey="justification"
+                      text={displayJustification}
+                      sectionType="justification"
+                    />
+                    {showTranslation && translation?.justificationEn && (
+                      <JapaneseTranslation text={translation.justificationEn} />
+                    )}
+                  </div>
+                )}
+              </VocabularyCapture>
+            </HighlightCapture>
           </article>
 
           <ReaderSidebar
             captureMode={captureMode}
+            highlightMode={highlightMode}
+            highlights={highlights}
             learning={learning}
             mutationPending={learningMutation.isPending}
             site={site}
             showTranslation={showTranslation}
             translation={translation}
+            displayCriteria={displayCriteria}
             onComprehension={(value) =>
               learningMutation.mutate(() =>
                 updateComprehension(site.uuid, value),
@@ -393,6 +485,8 @@ export default function RandomHeritagePage() {
             />
           </section>
         )}
+
+        <ReadingQuiz heritageName={site.nameEn} heritageSiteId={site.uuid} />
 
         <section className="flex flex-wrap items-center justify-between gap-5 border-t border-[#18352f]/15 py-10">
           <div>
@@ -569,9 +663,11 @@ function ActionBar({
   site,
   learning,
   captureMode,
+  highlightMode,
   showTranslation,
   translating,
   onCapture,
+  onHighlight,
   onTranslate,
   onFavorite,
   onReadLater,
@@ -579,9 +675,11 @@ function ActionBar({
   site: WorldHeritageSite
   learning?: LearningState
   captureMode: boolean
+  highlightMode: boolean
   showTranslation: boolean
   translating: boolean
   onCapture: () => void
+  onHighlight: () => void
   onTranslate: () => void
   onFavorite: () => void
   onReadLater: () => void
@@ -601,6 +699,14 @@ function ActionBar({
             : showTranslation
               ? '英語だけに戻す'
               : '日本語訳を表示'}
+        </button>
+        <button
+          className={`${button} ${highlightMode ? 'border-[#e7c778] bg-[#e7c778]' : 'border-[#18352f]/25'}`}
+          onClick={onHighlight}
+          type="button"
+          aria-pressed={highlightMode}
+        >
+          {highlightMode ? 'ハイライトモード ON' : '英文をハイライト'}
         </button>
         <a
           className={`${button} border-[#b85635] text-[#b85635] hover:bg-[#b85635] hover:text-white`}
@@ -642,6 +748,11 @@ function ActionBar({
           単語はクリック、句動詞や複数語はドラッグまたは長押しで選択してください。
         </p>
       )}
+      {highlightMode && (
+        <p className="mt-3 text-xs leading-5 text-[#18352f]/60">
+          気になる英文を選択し、分からなかった理由と日本語メモを保存できます。
+        </p>
+      )}
     </div>
   )
 }
@@ -650,16 +761,22 @@ function ReaderSidebar({
   site,
   learning,
   captureMode,
+  highlightMode,
+  highlights,
   showTranslation,
   translation,
+  displayCriteria,
   mutationPending,
   onComprehension,
 }: {
   site: WorldHeritageSite
   learning?: LearningState
   captureMode: boolean
+  highlightMode: boolean
+  highlights: ArticleHighlight[]
   showTranslation: boolean
   translation?: ArticleTranslation
+  displayCriteria: string | null
   mutationPending: boolean
   onComprehension: (value: ComprehensionLevel) => void
 }) {
@@ -714,23 +831,41 @@ function ReaderSidebar({
           </div>
         )}
       </div>
-      {site.criteriaText && (
+      {displayCriteria && (
         <div>
           <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
             HERITAGE CRITERIA
           </p>
-          <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
-            <SelectableText
-              className="mt-3 text-xs leading-6 text-[#18352f]/65"
-              text={site.criteriaText}
-              sectionType="criteria"
-            />
-          </VocabularyCapture>
+          <HighlightCapture
+            enabled={highlightMode}
+            heritageName={site.nameEn}
+            heritageSiteId={site.uuid}
+          >
+            <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
+              <SelectableText
+                className="mt-3 text-xs leading-6 text-[#18352f]/65"
+                highlights={highlights.filter(
+                  (highlight) => highlight.sectionKey === 'criteria',
+                )}
+                sectionKey="criteria"
+                text={displayCriteria}
+                sectionType="criteria"
+              />
+            </VocabularyCapture>
+          </HighlightCapture>
           {showTranslation && translation?.criteriaText && (
             <JapaneseTranslation text={translation.criteriaText} />
           )}
         </div>
       )}
+      <div>
+        <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+          HIGHLIGHTS & NOTES
+        </p>
+        <div className="mt-4">
+          <HighlightsPanel heritageSiteId={site.uuid} highlights={highlights} />
+        </div>
+      </div>
       {site.danger && (
         <div className="border border-[#b85635]/35 bg-[#b85635]/6 p-4">
           <p className="text-xs font-bold text-[#b85635]">

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getHistory, getStats } from '../api/heritage'
+import { getReviewSummary } from '../api/vocabulary'
 import { AppShell } from '../components/AppShell'
 import type { HeritageMode } from '../types'
 
@@ -20,6 +21,10 @@ export default function HomePage() {
   )
   const stats = useQuery({ queryKey: ['stats'], queryFn: getStats })
   const history = useQuery({ queryKey: ['history'], queryFn: getHistory })
+  const review = useQuery({
+    queryKey: ['review-summary'],
+    queryFn: getReviewSummary,
+  })
 
   function updateMode(nextMode: HeritageMode) {
     setMode(nextMode)
@@ -71,7 +76,25 @@ export default function HomePage() {
               className="inline-flex min-h-14 items-center border border-[#b85635] px-6 text-sm font-bold text-[#b85635]"
               to="/memorize"
             >
-              暗記カードを始める
+              今日の復習を始める
+              {review.data ? `（${review.data.dueToday}件）` : ''}
+            </Link>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-xs font-bold text-[#b85635]">
+            <Link className="underline" to="/explore">
+              条件を指定して探す
+            </Link>
+            <Link className="underline" to="/map">
+              世界地図から探す
+            </Link>
+            <Link className="underline" to="/themes">
+              テーマから探す
+            </Link>
+            <Link className="underline" to="/favorites">
+              お気に入り
+            </Link>
+            <Link className="underline" to="/read-later">
+              後で読む
             </Link>
           </div>
         </div>
@@ -93,6 +116,15 @@ export default function HomePage() {
             ))}
           </div>
           <div className="mt-7">
+            <Link
+              className="mb-6 flex items-center justify-between border-l-4 border-[#c98c47] bg-[#c98c47]/8 px-4 py-3 text-xs font-bold"
+              to="/memorize"
+            >
+              <span>今日復習する表現</span>
+              <strong className="font-serif text-xl">
+                {review.data?.dueToday ?? '—'}件 →
+              </strong>
+            </Link>
             <div className="flex items-center justify-between">
               <h2 className="font-serif text-xl">最近読んだ場所</h2>
               <Link className="text-xs font-bold text-[#b85635]" to="/stats">

@@ -1,4 +1,4 @@
-import type { SavedVocabulary } from '../types'
+import type { ReviewRating, ReviewSummary, SavedVocabulary } from '../types'
 import { apiClient } from './client'
 
 export type SaveVocabularyInput = {
@@ -38,6 +38,28 @@ export async function updateVocabularyLearningState(
   const { data } = await apiClient.patch<SavedVocabulary>(
     `/vocabulary/${id}/learning-state`,
     changes,
+  )
+  return data
+}
+
+export async function getDueVocabulary() {
+  const { data } = await apiClient.get<SavedVocabulary[]>(
+    '/vocabulary/review/due',
+  )
+  return data
+}
+
+export async function getReviewSummary() {
+  const { data } = await apiClient.get<ReviewSummary>(
+    '/vocabulary/review/summary',
+  )
+  return data
+}
+
+export async function recordVocabularyReview(id: number, rating: ReviewRating) {
+  const { data } = await apiClient.post<SavedVocabulary>(
+    `/vocabulary/${id}/reviews`,
+    { rating },
   )
   return data
 }
