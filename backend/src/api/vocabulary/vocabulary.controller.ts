@@ -1,0 +1,47 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  HttpCode,
+  Param,
+  ParseIntPipe,
+  Post,
+  Query,
+} from '@nestjs/common';
+import { SaveVocabularyInput, VocabularyService } from './vocabulary.service';
+
+@Controller('vocabulary')
+export class VocabularyController {
+  constructor(private readonly vocabularyService: VocabularyService) {}
+
+  @Get()
+  getAll(
+    @Query('search') search?: string,
+    @Query('sort') sort?: string,
+    @Query('heritageSiteId') heritageSiteId?: string,
+  ) {
+    return this.vocabularyService.getAll(search, sort, heritageSiteId);
+  }
+
+  @Get('count')
+  async count() {
+    return { count: await this.vocabularyService.count() };
+  }
+
+  @Get(':id')
+  getOne(@Param('id', ParseIntPipe) id: number) {
+    return this.vocabularyService.getOne(id);
+  }
+
+  @Post()
+  save(@Body() input: SaveVocabularyInput) {
+    return this.vocabularyService.save(input);
+  }
+
+  @Delete(':id')
+  @HttpCode(204)
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.vocabularyService.remove(id);
+  }
+}

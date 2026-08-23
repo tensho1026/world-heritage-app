@@ -14,7 +14,9 @@ async function main() {
     throw new Error('DATABASE_URL is not set.');
   }
 
-  const dataSource = new DataSource(createDataSourceOptions(databaseUrl, false));
+  const dataSource = new DataSource(
+    createDataSourceOptions(databaseUrl, false),
+  );
 
   await dataSource.initialize();
 

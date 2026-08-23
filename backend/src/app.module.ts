@@ -7,6 +7,9 @@ import { createTypeOrmModuleOptions } from './database/typeorm.options';
 import { WorldHeritageSite } from './database/entities/world-heritage-site.entity';
 import { HeritageImportModule } from './api/import/heritage-import/heritage-import.module';
 import { RandomHeritageModule } from './api/random-heritage/random-heritage.module';
+import { HeritageModule } from './api/heritage/heritage.module';
+import { TranslationModule } from './api/translation/translation.module';
+import { VocabularyModule } from './api/vocabulary/vocabulary.module';
 
 @Module({
   imports: [
@@ -24,6 +27,9 @@ import { RandomHeritageModule } from './api/random-heritage/random-heritage.modu
     TypeOrmModule.forFeature([WorldHeritageSite]),
     HeritageImportModule,
     RandomHeritageModule,
+    HeritageModule,
+    TranslationModule,
+    VocabularyModule,
   ],
   controllers: [AppController],
   providers: [AppService],
