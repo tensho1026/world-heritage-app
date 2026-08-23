@@ -37,6 +37,8 @@ export type WorldHeritageSite = {
   isFeatured: boolean
   wikipediaImageUrl: string | null
   wikipediaPageUrl: string | null
+  wikipediaImageAuthor: string | null
+  wikipediaImageLicense: string | null
 }
 
 export type SiteSummary = Pick<

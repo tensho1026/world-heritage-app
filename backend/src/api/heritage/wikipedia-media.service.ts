@@ -6,8 +6,16 @@ import { WorldHeritageSite } from '../../database/entities/world-heritage-site.e
 
 type WikipediaPage = {
   fullurl?: string;
+  pageimage?: string;
   original?: { source?: string };
   thumbnail?: { source?: string };
+  imageinfo?: Array<{
+    extmetadata?: {
+      Artist?: { value?: string };
+      Credit?: { value?: string };
+      LicenseShortName?: { value?: string };
+    };
+  }>;
 };
 
 type WikipediaResponse = {
@@ -43,7 +51,7 @@ export class WikipediaMediaService {
       gsrnamespace: '0',
       gsrlimit: '1',
       prop: 'pageimages|info',
-      piprop: 'original|thumbnail',
+      piprop: 'name|original|thumbnail',
       pithumbsize: '1600',
       inprop: 'url',
       origin: '*',
@@ -67,9 +75,14 @@ export class WikipediaMediaService {
       const page = Object.values(data.query?.pages ?? {})[0];
       const imageUrl =
         page?.original?.source ?? page?.thumbnail?.source ?? null;
+      const attribution = page?.pageimage
+        ? await this.fetchAttribution(apiUrl, page.pageimage)
+        : null;
 
       site.wikipediaImageUrl = imageUrl;
       site.wikipediaPageUrl = page?.fullurl ?? null;
+      site.wikipediaImageAuthor = attribution?.author ?? null;
+      site.wikipediaImageLicense = attribution?.license ?? null;
       site.wikipediaImageFetchedAt = new Date();
       await this.heritageRepository.save(site);
     } catch {
@@ -77,5 +90,48 @@ export class WikipediaMediaService {
     }
 
     return site;
+  }
+
+  private async fetchAttribution(apiUrl: string, filename: string) {
+    const params = new URLSearchParams({
+      action: 'query',
+      format: 'json',
+      formatversion: '2',
+      titles: `File:${filename}`,
+      prop: 'imageinfo',
+      iiprop: 'extmetadata',
+      origin: '*',
+    });
+    const response = await fetch(`${apiUrl}?${params.toString()}`, {
+      headers: {
+        'Api-User-Agent':
+          this.configService.get<string>('WIKIMEDIA_USER_AGENT') ??
+          'WorldHeritageAtlas/1.0 (personal learning application)',
+      },
+      signal: AbortSignal.timeout(8_000),
+    });
+    if (!response.ok) return null;
+
+    const data = (await response.json()) as WikipediaResponse;
+    const page = Object.values(data.query?.pages ?? {})[0];
+    const metadata = page?.imageinfo?.[0]?.extmetadata;
+    return {
+      author: this.toPlainText(
+        metadata?.Artist?.value ?? metadata?.Credit?.value,
+      ),
+      license: this.toPlainText(metadata?.LicenseShortName?.value),
+    };
+  }
+
+  private toPlainText(value?: string) {
+    if (!value) return null;
+    return value
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 }

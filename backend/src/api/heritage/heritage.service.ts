@@ -107,7 +107,10 @@ export class HeritageService {
     const readCount = await this.readRepository.count({
       where: { heritageSiteId },
     });
-    return { ...(state ?? this.defaultLearningState(heritageSiteId)), readCount };
+    return {
+      ...(state ?? this.defaultLearningState(heritageSiteId)),
+      readCount,
+    };
   }
 
   async updateComprehension(

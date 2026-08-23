@@ -124,6 +124,9 @@ export default function RandomHeritagePage() {
       void queryClient.invalidateQueries({ queryKey: ['stats'] })
       void queryClient.invalidateQueries({ queryKey: ['history'] })
       void queryClient.invalidateQueries({ queryKey: ['read-later'] })
+      void queryClient.invalidateQueries({
+        queryKey: ['learning-state', site!.uuid],
+      })
     },
   })
   const undoMutation = useMutation({
@@ -224,6 +227,14 @@ export default function RandomHeritagePage() {
               )}
               {site.mainImageAuthor && (
                 <span>Photo: {site.mainImageAuthor} </span>
+              )}
+              {!site.mainImageAuthor && site.wikipediaImageAuthor && (
+                <span>Photo: {site.wikipediaImageAuthor} </span>
+              )}
+              {(site.mainImageLicense || site.wikipediaImageLicense) && (
+                <span>
+                  {site.mainImageLicense ?? site.wikipediaImageLicense}{' '}
+                </span>
               )}
               {imageSourceUrl && (
                 <a

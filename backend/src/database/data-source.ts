@@ -4,6 +4,7 @@ import { createDataSourceOptions } from './typeorm.options';
 import { AddLearningFeatures1760000000000 } from './migrations/1760000000000-AddLearningFeatures';
 import { SeedFeaturedSites1760000001000 } from './migrations/1760000001000-SeedFeaturedSites';
 import { AddVocabularyLearningStates1760000002000 } from './migrations/1760000002000-AddVocabularyLearningStates';
+import { AddWikipediaAttribution1760000003000 } from './migrations/1760000003000-AddWikipediaAttribution';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -17,5 +18,6 @@ export default new DataSource({
     AddLearningFeatures1760000000000,
     SeedFeaturedSites1760000001000,
     AddVocabularyLearningStates1760000002000,
+    AddWikipediaAttribution1760000003000,
   ],
 });

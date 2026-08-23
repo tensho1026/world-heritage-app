@@ -194,6 +194,12 @@ export class WorldHeritageSite {
   @Column({ type: 'text', nullable: true })
   wikipediaPageUrl: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  wikipediaImageAuthor: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  wikipediaImageLicense: string | null;
+
   @Column({ type: 'timestamptz', nullable: true })
   wikipediaImageFetchedAt: Date | null;
 
