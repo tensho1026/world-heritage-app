@@ -5,6 +5,7 @@ import { VocabularySource } from '../../database/entities/vocabulary-source.enti
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { VocabularyController } from './vocabulary.controller';
 import { VocabularyService } from './vocabulary.service';
+import { VocabularyReview } from '../../database/entities/vocabulary-review.entity';
 
 @Module({
   imports: [
@@ -12,6 +13,7 @@ import { VocabularyService } from './vocabulary.service';
       SavedVocabulary,
       VocabularySource,
       WorldHeritageSite,
+      VocabularyReview,
     ]),
   ],
   controllers: [VocabularyController],

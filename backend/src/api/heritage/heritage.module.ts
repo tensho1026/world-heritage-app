@@ -9,6 +9,7 @@ import { HeritageController } from './heritage.controller';
 import { HeritageService } from './heritage.service';
 import { LibraryController } from './library.controller';
 import { WikipediaMediaService } from './wikipedia-media.service';
+import { ComprehensionHistory } from '../../database/entities/comprehension-history.entity';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { WikipediaMediaService } from './wikipedia-media.service';
       HeritageRead,
       HeritageLearningState,
       SavedVocabulary,
+      ComprehensionHistory,
     ]),
   ],
   controllers: [HeritageController, LibraryController],

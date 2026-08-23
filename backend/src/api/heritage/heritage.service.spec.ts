@@ -9,6 +9,7 @@ import {
 } from '../../database/entities/world-heritage-site.entity';
 import { HeritageService } from './heritage.service';
 import { WikipediaMediaService } from './wikipedia-media.service';
+import { ComprehensionHistory } from '../../database/entities/comprehension-history.entity';
 
 function randomQuery(result: WorldHeritageSite | null) {
   return {
@@ -43,6 +44,7 @@ describe('HeritageService random selection', () => {
       {} as unknown as Repository<HeritageRead>,
       {} as unknown as Repository<HeritageLearningState>,
       {} as unknown as Repository<SavedVocabulary>,
+      {} as unknown as Repository<ComprehensionHistory>,
       wikipediaMediaService as unknown as WikipediaMediaService,
     );
 

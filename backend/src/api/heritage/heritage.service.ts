@@ -14,6 +14,7 @@ import { HeritageView } from '../../database/entities/heritage-view.entity';
 import { SavedVocabulary } from '../../database/entities/saved-vocabulary.entity';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { WikipediaMediaService } from './wikipedia-media.service';
+import { ComprehensionHistory } from '../../database/entities/comprehension-history.entity';
 
 export type HeritageMode = 'all' | 'famous';
 
@@ -30,6 +31,8 @@ export class HeritageService {
     private readonly learningRepository: Repository<HeritageLearningState>,
     @InjectRepository(SavedVocabulary)
     private readonly vocabularyRepository: Repository<SavedVocabulary>,
+    @InjectRepository(ComprehensionHistory)
+    private readonly comprehensionHistoryRepository: Repository<ComprehensionHistory>,
     private readonly wikipediaMediaService: WikipediaMediaService,
   ) {}
 
@@ -143,8 +146,19 @@ export class HeritageService {
     }
 
     const state = await this.getOrCreateLearningState(heritageSiteId);
+    const previousLevel = state.comprehensionLevel;
     state.comprehensionLevel = comprehensionLevel;
-    return this.learningRepository.save(state);
+    const saved = await this.learningRepository.save(state);
+    if (previousLevel !== comprehensionLevel) {
+      await this.comprehensionHistoryRepository.save(
+        this.comprehensionHistoryRepository.create({
+          heritageSiteId,
+          previousLevel,
+          nextLevel: comprehensionLevel,
+        }),
+      );
+    }
+    return saved;
   }
 
   async setFavorite(heritageSiteId: string, value: boolean) {

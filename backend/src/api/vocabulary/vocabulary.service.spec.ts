@@ -3,6 +3,7 @@ import { SavedVocabulary } from '../../database/entities/saved-vocabulary.entity
 import { VocabularySource } from '../../database/entities/vocabulary-source.entity';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { VocabularyService } from './vocabulary.service';
+import { VocabularyReview } from '../../database/entities/vocabulary-review.entity';
 
 describe('VocabularyService learning states', () => {
   const vocabulary = {
@@ -19,10 +20,12 @@ describe('VocabularyService learning states', () => {
   };
   const sourceRepository = { find: jest.fn() };
   const heritageRepository = { findBy: jest.fn() };
+  const reviewRepository = {};
   const service = new VocabularyService(
     vocabularyRepository as unknown as Repository<SavedVocabulary>,
     sourceRepository as unknown as Repository<VocabularySource>,
     heritageRepository as unknown as Repository<WorldHeritageSite>,
+    reviewRepository as unknown as Repository<VocabularyReview>,
   );
 
   beforeEach(() => {

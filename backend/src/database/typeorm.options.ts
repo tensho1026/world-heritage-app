@@ -7,6 +7,10 @@ import { HeritageLearningState } from './entities/heritage-learning-state.entity
 import { SavedVocabulary } from './entities/saved-vocabulary.entity';
 import { VocabularySource } from './entities/vocabulary-source.entity';
 import { TranslationCache } from './entities/translation-cache.entity';
+import { ArticleHighlight } from './entities/article-highlight.entity';
+import { VocabularyReview } from './entities/vocabulary-review.entity';
+import { QuizAttempt } from './entities/quiz-attempt.entity';
+import { ComprehensionHistory } from './entities/comprehension-history.entity';
 
 export const databaseEntities = [
   WorldHeritageSite,
@@ -16,6 +20,10 @@ export const databaseEntities = [
   SavedVocabulary,
   VocabularySource,
   TranslationCache,
+  ArticleHighlight,
+  VocabularyReview,
+  QuizAttempt,
+  ComprehensionHistory,
 ];
 
 type SharedPostgresOptions = {

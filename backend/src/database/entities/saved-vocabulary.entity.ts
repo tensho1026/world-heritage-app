@@ -30,6 +30,25 @@ export class SavedVocabulary {
   @Column({ type: 'boolean', default: true })
   isUncertain: boolean;
 
+  @Index()
+  @Column({ type: 'timestamptz', default: () => 'now()' })
+  nextReviewAt: Date;
+
+  @Column({ type: 'double precision', default: 0 })
+  reviewIntervalDays: number;
+
+  @Column({ type: 'double precision', default: 2.5 })
+  reviewEaseFactor: number;
+
+  @Column({ type: 'int', default: 0 })
+  reviewCount: number;
+
+  @Column({ type: 'int', default: 0 })
+  lapseCount: number;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  lastReviewedAt: Date | null;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

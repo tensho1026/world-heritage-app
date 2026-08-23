@@ -11,6 +11,7 @@ import {
   Query,
 } from '@nestjs/common';
 import { SaveVocabularyInput, VocabularyService } from './vocabulary.service';
+import { VocabularyReviewRating } from '../../database/entities/vocabulary-review.entity';
 
 @Controller('vocabulary')
 export class VocabularyController {
@@ -38,6 +39,16 @@ export class VocabularyController {
     return { count: await this.vocabularyService.count() };
   }
 
+  @Get('review/due')
+  getDueReviews() {
+    return this.vocabularyService.getDueReviews();
+  }
+
+  @Get('review/summary')
+  getReviewSummary() {
+    return this.vocabularyService.getReviewSummary();
+  }
+
   @Get(':id')
   getOne(@Param('id', ParseIntPipe) id: number) {
     return this.vocabularyService.getOne(id);
@@ -55,6 +66,14 @@ export class VocabularyController {
     changes: { isInMemorization?: unknown; isUncertain?: unknown },
   ) {
     return this.vocabularyService.updateLearningState(id, changes);
+  }
+
+  @Post(':id/reviews')
+  recordReview(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('rating') rating: VocabularyReviewRating,
+  ) {
+    return this.vocabularyService.recordReview(id, rating);
   }
 
   @Delete(':id')

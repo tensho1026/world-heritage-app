@@ -10,6 +10,10 @@ import { RandomHeritageModule } from './api/random-heritage/random-heritage.modu
 import { HeritageModule } from './api/heritage/heritage.module';
 import { TranslationModule } from './api/translation/translation.module';
 import { VocabularyModule } from './api/vocabulary/vocabulary.module';
+import { HighlightsModule } from './api/highlights/highlights.module';
+import { DiscoveryModule } from './api/discovery/discovery.module';
+import { QuizModule } from './api/quiz/quiz.module';
+import { ReportsModule } from './api/reports/reports.module';
 
 @Module({
   imports: [
@@ -30,6 +34,10 @@ import { VocabularyModule } from './api/vocabulary/vocabulary.module';
     HeritageModule,
     TranslationModule,
     VocabularyModule,
+    HighlightsModule,
+    DiscoveryModule,
+    QuizModule,
+    ReportsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

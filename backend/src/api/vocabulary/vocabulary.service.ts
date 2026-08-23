@@ -4,10 +4,14 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { In, Repository } from 'typeorm';
+import { In, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { SavedVocabulary } from '../../database/entities/saved-vocabulary.entity';
 import { VocabularySource } from '../../database/entities/vocabulary-source.entity';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
+import {
+  VocabularyReview,
+  VocabularyReviewRating,
+} from '../../database/entities/vocabulary-review.entity';
 
 export type SaveVocabularyInput = {
   expression?: unknown;
@@ -28,6 +32,8 @@ export class VocabularyService {
     private readonly sourceRepository: Repository<VocabularySource>,
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
+    @InjectRepository(VocabularyReview)
+    private readonly reviewRepository: Repository<VocabularyReview>,
   ) {}
 
   async save(input: SaveVocabularyInput) {
@@ -184,6 +190,103 @@ export class VocabularyService {
 
   async count() {
     return this.vocabularyRepository.count();
+  }
+
+  async getDueReviews() {
+    const vocabulary = await this.vocabularyRepository.find({
+      where: {
+        isInMemorization: true,
+        nextReviewAt: LessThanOrEqual(new Date()),
+      },
+      order: { lapseCount: 'DESC', nextReviewAt: 'ASC', createdAt: 'ASC' },
+      take: 200,
+    });
+    return this.attachSources(vocabulary);
+  }
+
+  async getReviewSummary() {
+    const now = new Date();
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfWeek = new Date(now.getTime() + 7 * 86_400_000);
+    const [dueToday, reviewedToday, upcomingWeek] = await Promise.all([
+      this.vocabularyRepository.count({
+        where: {
+          isInMemorization: true,
+          nextReviewAt: LessThanOrEqual(now),
+        },
+      }),
+      this.reviewRepository.count({
+        where: { reviewedAt: MoreThan(startOfToday) },
+      }),
+      this.vocabularyRepository
+        .createQueryBuilder('vocabulary')
+        .where('vocabulary.isInMemorization = true')
+        .andWhere('vocabulary.nextReviewAt > :now', { now })
+        .andWhere('vocabulary.nextReviewAt <= :endOfWeek', { endOfWeek })
+        .getCount(),
+    ]);
+    return { dueToday, reviewedToday, upcomingWeek };
+  }
+
+  async recordReview(id: number, rating: VocabularyReviewRating) {
+    if (!Object.values(VocabularyReviewRating).includes(rating)) {
+      throw new BadRequestException('Invalid review rating.');
+    }
+    const vocabulary = await this.vocabularyRepository.findOneBy({ id });
+    if (!vocabulary) throw new NotFoundException('Vocabulary was not found.');
+
+    const now = new Date();
+    const previousIntervalDays = vocabulary.reviewIntervalDays;
+    let nextIntervalDays: number;
+    if (rating === VocabularyReviewRating.AGAIN) {
+      nextIntervalDays = 10 / (24 * 60);
+      vocabulary.reviewEaseFactor = Math.max(
+        1.3,
+        vocabulary.reviewEaseFactor - 0.2,
+      );
+      vocabulary.lapseCount += 1;
+      vocabulary.isUncertain = true;
+    } else if (rating === VocabularyReviewRating.HARD) {
+      nextIntervalDays =
+        previousIntervalDays < 1 ? 1 : Math.max(1, previousIntervalDays * 1.2);
+      vocabulary.reviewEaseFactor = Math.max(
+        1.3,
+        vocabulary.reviewEaseFactor - 0.15,
+      );
+      vocabulary.isUncertain = true;
+    } else {
+      nextIntervalDays =
+        vocabulary.reviewCount === 0
+          ? 1
+          : previousIntervalDays < 1
+            ? 3
+            : Math.max(3, previousIntervalDays * vocabulary.reviewEaseFactor);
+      vocabulary.reviewEaseFactor = Math.min(
+        3,
+        vocabulary.reviewEaseFactor + 0.05,
+      );
+      vocabulary.isUncertain = false;
+    }
+
+    nextIntervalDays = Math.round(nextIntervalDays * 1000) / 1000;
+    vocabulary.reviewIntervalDays = nextIntervalDays;
+    vocabulary.reviewCount += 1;
+    vocabulary.lastReviewedAt = now;
+    vocabulary.nextReviewAt = new Date(
+      now.getTime() + nextIntervalDays * 86_400_000,
+    );
+    await this.vocabularyRepository.save(vocabulary);
+    await this.reviewRepository.save(
+      this.reviewRepository.create({
+        vocabularyId: id,
+        rating,
+        previousIntervalDays,
+        nextIntervalDays,
+        nextReviewAt: vocabulary.nextReviewAt,
+      }),
+    );
+    return this.getOne(id);
   }
 
   private async attachSources(vocabulary: SavedVocabulary[]) {
