@@ -14,6 +14,6 @@ describe('simplifyEnglish', () => {
         'It comprises numerous significant monuments; it demonstrates history.',
         'B1',
       ),
-    ).toBe('It includes many important monuments. it shows history.')
+    ).toBe('It includes many important monuments. It shows history.')
   })
 })

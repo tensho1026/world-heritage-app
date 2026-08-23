@@ -34,9 +34,12 @@ export function simplifyEnglish(text: string, level: ReadingLevel) {
   result = result.replace(/;\s*/g, '. ').replace(/:\s+(?=[A-Z])/g, '. ')
   if (level === 'A2') {
     result = result
-      .replace(/,\s+and\s+(?=(?:it|they|this|these|the)\b)/gi, '. $&')
-      .replace(/\.\s*,\s+and\s+/g, '. And ')
+      .replace(/,\s+and\s+(?=(?:it|they|this|these|the)\b)/gi, '. ')
       .replace(/\s{2,}/g, ' ')
   }
+  result = result.replace(
+    /(^|[.!?]\s+)([a-z])/g,
+    (_, boundary: string, letter: string) => `${boundary}${letter.toUpperCase()}`,
+  )
   return result.trim()
 }

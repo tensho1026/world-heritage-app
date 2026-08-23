@@ -5,7 +5,13 @@ import { getLearningCalendar } from '../api/reports'
 const weekdays = ['月', '火', '水', '木', '金', '土', '日']
 
 export function LearningCalendarPanel() {
-  const [month, setMonth] = useState(() => new Date().toISOString().slice(0, 7))
+  const [month, setMonth] = useState(() =>
+    new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Tokyo',
+      year: 'numeric',
+      month: '2-digit',
+    }).format(new Date()),
+  )
   const calendar = useQuery({
     queryKey: ['learning-calendar', month],
     queryFn: () => getLearningCalendar(month),

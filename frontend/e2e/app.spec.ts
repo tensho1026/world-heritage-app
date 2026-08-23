@@ -132,6 +132,56 @@ test('renders a random heritage reader with learning actions', async ({
   await expect(aiLink).toHaveAttribute('href', /chatgpt\.com\/\?prompt=/)
 })
 
+test('saves and restores a sentence highlight with a note', async ({
+  page,
+}) => {
+  const savedHighlights: Array<Record<string, unknown>> = []
+  await page.route('**/api/heritage/random**', (route) =>
+    route.fulfill({ json: heritage }),
+  )
+  await page.route('**/api/heritage/*/views', (route) =>
+    route.fulfill({ json: { id: 1 } }),
+  )
+  await page.route('**/api/heritage/*/learning-state', (route) =>
+    route.fulfill({
+      json: {
+        heritageSiteId: heritage.uuid,
+        comprehensionLevel: null,
+        isFavorite: false,
+        isReadLater: false,
+        readCount: 0,
+      },
+    }),
+  )
+  await page.route('**/api/highlights/site/**', (route) =>
+    route.fulfill({ json: savedHighlights }),
+  )
+  await page.route('**/api/highlights', async (route) => {
+    const body = route.request().postDataJSON()
+    const saved = {
+      id: 1,
+      ...body,
+      createdAt: '2026-08-23T00:00:00.000Z',
+      updatedAt: '2026-08-23T00:00:00.000Z',
+    }
+    savedHighlights.push(saved)
+    await route.fulfill({ json: saved })
+  })
+  await page.goto('/random-heritage')
+  await page.getByRole('button', { name: '英文をハイライト' }).click()
+  const paragraph = page.locator('[data-highlight-section="description-0"]')
+  await paragraph.selectText()
+  await paragraph.dispatchEvent('mouseup')
+  await expect(page.getByText('HIGHLIGHT & NOTE')).toBeVisible()
+  await page.getByLabel('日本語メモ').fill('主語と修飾関係を後で確認する')
+  await page.getByRole('button', { name: '黄色でハイライト保存' }).click()
+  await expect(page.locator('mark[data-highlight-id="1"]')).toBeVisible()
+
+  await page.reload()
+  await expect(page.locator('mark[data-highlight-id="1"]')).toBeVisible()
+  await expect(page.getByText('主語と修飾関係を後で確認する')).toBeVisible()
+})
+
 test('advances spaced-repetition cards with Enter', async ({ page }) => {
   const reviewedIds = new Set<number>()
   const cards = [

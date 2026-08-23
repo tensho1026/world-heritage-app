@@ -6,8 +6,17 @@ export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
   @Get()
-  getQuiz(@Param('heritageSiteId') heritageSiteId: string) {
-    return this.quizService.getQuiz(heritageSiteId);
+  async getQuiz(@Param('heritageSiteId') heritageSiteId: string) {
+    const quiz = await this.quizService.getQuiz(heritageSiteId);
+    return {
+      ...quiz,
+      questions: quiz.questions.map(({ correctAnswer, ...question }) => {
+        // The service needs the answer for scoring, but a quiz must not reveal it
+        // to the browser before the learner submits an attempt.
+        void correctAnswer;
+        return question;
+      }),
+    };
   }
 
   @Get('history')

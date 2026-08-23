@@ -196,7 +196,6 @@ export type QuizQuestion = {
   type: 'multiple-choice' | 'true-false'
   prompt: string
   options: string[]
-  correctAnswer: string
   evidence: string
 }
 
