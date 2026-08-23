@@ -161,13 +161,23 @@ export class HeritageService {
   }
 
   async getStats() {
-    const [totalViews, totalReads, savedVocabulary, savedStates] =
-      await Promise.all([
-        this.viewRepository.count(),
-        this.readRepository.count(),
-        this.vocabularyRepository.count(),
-        this.learningRepository.find(),
-      ]);
+    const [
+      totalViews,
+      totalReads,
+      savedVocabulary,
+      memorizationVocabulary,
+      uncertainVocabulary,
+      savedStates,
+    ] = await Promise.all([
+      this.viewRepository.count(),
+      this.readRepository.count(),
+      this.vocabularyRepository.count(),
+      this.vocabularyRepository.count({
+        where: { isInMemorization: true },
+      }),
+      this.vocabularyRepository.count({ where: { isUncertain: true } }),
+      this.learningRepository.find(),
+    ]);
     const [uniqueViewed, uniqueRead, categoryRows, regionRows] =
       await Promise.all([
         this.viewRepository
@@ -220,6 +230,8 @@ export class HeritageService {
       favorites: savedStates.filter((state) => state.isFavorite).length,
       readLater: savedStates.filter((state) => state.isReadLater).length,
       savedVocabulary,
+      memorizationVocabulary,
+      uncertainVocabulary,
       comprehension,
       byCategory: this.rowsToRecord(categoryRows),
       byRegion: this.rowsToRecord(regionRows),

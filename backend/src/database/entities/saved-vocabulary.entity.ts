@@ -22,6 +22,14 @@ export class SavedVocabulary {
   @Column({ type: 'text' })
   translationJa: string;
 
+  @Index()
+  @Column({ type: 'boolean', default: true })
+  isInMemorization: boolean;
+
+  @Index()
+  @Column({ type: 'boolean', default: true })
+  isUncertain: boolean;
+
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
 

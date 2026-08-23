@@ -91,6 +91,8 @@ export class VocabularyService {
     search?: string,
     requestedSort?: string,
     heritageSiteId?: string,
+    memorization?: string,
+    uncertain?: string,
   ) {
     const sort: VocabularySort = ['oldest', 'alphabetical'].includes(
       requestedSort ?? '',
@@ -118,6 +120,18 @@ export class VocabularyService {
       );
     }
 
+    if (memorization === 'true' || memorization === 'false') {
+      query.andWhere('vocabulary.isInMemorization = :isInMemorization', {
+        isInMemorization: memorization === 'true',
+      });
+    }
+
+    if (uncertain === 'true' || uncertain === 'false') {
+      query.andWhere('vocabulary.isUncertain = :isUncertain', {
+        isUncertain: uncertain === 'true',
+      });
+    }
+
     if (sort === 'alphabetical') {
       query.orderBy('vocabulary.normalizedExpression', 'ASC');
     } else {
@@ -140,6 +154,32 @@ export class VocabularyService {
     if (!result.affected) {
       throw new NotFoundException('Vocabulary was not found.');
     }
+  }
+
+  async updateLearningState(
+    id: number,
+    changes: { isInMemorization?: unknown; isUncertain?: unknown },
+  ) {
+    const vocabulary = await this.vocabularyRepository.findOneBy({ id });
+    if (!vocabulary) throw new NotFoundException('Vocabulary was not found.');
+
+    const hasMemorization = typeof changes.isInMemorization === 'boolean';
+    const hasUncertain = typeof changes.isUncertain === 'boolean';
+    if (!hasMemorization && !hasUncertain) {
+      throw new BadRequestException('A vocabulary learning state is required.');
+    }
+
+    // These states intentionally remain independent. Updating one must never
+    // implicitly update the other.
+    if (hasMemorization) {
+      vocabulary.isInMemorization = changes.isInMemorization as boolean;
+    }
+    if (hasUncertain) {
+      vocabulary.isUncertain = changes.isUncertain as boolean;
+    }
+
+    await this.vocabularyRepository.save(vocabulary);
+    return this.getOne(id);
   }
 
   async count() {

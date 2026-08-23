@@ -6,6 +6,7 @@ import {
   HttpCode,
   Param,
   ParseIntPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -20,8 +21,16 @@ export class VocabularyController {
     @Query('search') search?: string,
     @Query('sort') sort?: string,
     @Query('heritageSiteId') heritageSiteId?: string,
+    @Query('memorization') memorization?: string,
+    @Query('uncertain') uncertain?: string,
   ) {
-    return this.vocabularyService.getAll(search, sort, heritageSiteId);
+    return this.vocabularyService.getAll(
+      search,
+      sort,
+      heritageSiteId,
+      memorization,
+      uncertain,
+    );
   }
 
   @Get('count')
@@ -37,6 +46,15 @@ export class VocabularyController {
   @Post()
   save(@Body() input: SaveVocabularyInput) {
     return this.vocabularyService.save(input);
+  }
+
+  @Patch(':id/learning-state')
+  updateLearningState(
+    @Param('id', ParseIntPipe) id: number,
+    @Body()
+    changes: { isInMemorization?: unknown; isUncertain?: unknown },
+  ) {
+    return this.vocabularyService.updateLearningState(id, changes);
   }
 
   @Delete(':id')
