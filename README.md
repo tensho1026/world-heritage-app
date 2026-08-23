@@ -2,6 +2,10 @@
 
 React フロントエンドと NestJS バックエンドをそれぞれ独立して管理するリポジトリです。
 
+## 仕様書
+
+- [MVP機能仕様書](docs/product-spec.md)
+
 ## 構成
 
 - `frontend`: React + TypeScript + Vite
