@@ -37,6 +37,14 @@ export default function MemorizePage() {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Enter') {
+        const target = event.target
+        if (
+          target instanceof HTMLElement &&
+          target.closest('a, button, input, select, textarea') &&
+          !target.closest('[data-memory-card]')
+        ) {
+          return
+        }
         event.preventDefault()
         advance()
       }
@@ -132,6 +140,7 @@ export default function MemorizePage() {
 
             <button
               className="grid min-h-[420px] w-full place-items-center border border-[#18352f]/20 bg-white/55 p-10 text-center shadow-[12px_12px_0_rgb(201_140_71_/_20%)] focus-visible:outline-3 focus-visible:outline-[#b85635] max-[600px]:min-h-[340px]"
+              data-memory-card="true"
               onClick={advance}
               type="button"
             >

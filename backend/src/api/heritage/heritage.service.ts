@@ -34,17 +34,35 @@ export class HeritageService {
   ) {}
 
   async getRandom(mode: HeritageMode, exclude?: string) {
-    const query = this.heritageRepository.createQueryBuilder('site');
+    const validExclude =
+      exclude &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        exclude,
+      )
+        ? exclude
+        : undefined;
+    const createRandomQuery = () => {
+      const query = this.heritageRepository.createQueryBuilder('site');
 
-    if (mode === 'famous') {
-      query.andWhere('site.isFeatured = :isFeatured', { isFeatured: true });
+      if (mode === 'famous') {
+        query.andWhere('site.isFeatured = :isFeatured', { isFeatured: true });
+      }
+
+      return query;
+    };
+    const query = createRandomQuery();
+
+    if (validExclude) {
+      query.andWhere('site.uuid != :exclude', { exclude: validExclude });
     }
 
-    if (exclude) {
-      query.andWhere('site.uuid != :exclude', { exclude });
-    }
+    let site = await query.orderBy('RANDOM()').limit(1).getOne();
 
-    const site = await query.orderBy('RANDOM()').limit(1).getOne();
+    // If a mode only has one candidate, showing it again is preferable to an
+    // empty result. With two or more candidates the exclusion query succeeds.
+    if (!site && validExclude) {
+      site = await createRandomQuery().orderBy('RANDOM()').limit(1).getOne();
+    }
 
     if (!site) {
       throw new NotFoundException(

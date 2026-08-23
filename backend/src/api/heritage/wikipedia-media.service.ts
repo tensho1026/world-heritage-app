@@ -76,7 +76,7 @@ export class WikipediaMediaService {
       const imageUrl =
         page?.original?.source ?? page?.thumbnail?.source ?? null;
       const attribution = page?.pageimage
-        ? await this.fetchAttribution(apiUrl, page.pageimage)
+        ? await this.fetchAttribution(apiUrl, page.pageimage).catch(() => null)
         : null;
 
       site.wikipediaImageUrl = imageUrl;

@@ -83,9 +83,9 @@ export default function RandomHeritagePage() {
   useEffect(() => {
     if (!site || viewedIdRef.current === site.uuid) return
     viewedIdRef.current = site.uuid
-    void recordHeritageView(site.uuid).then(() =>
-      queryClient.invalidateQueries({ queryKey: ['stats'] }),
-    )
+    void recordHeritageView(site.uuid)
+      .then(() => queryClient.invalidateQueries({ queryKey: ['stats'] }))
+      .catch(() => undefined)
   }, [queryClient, site])
 
   useEffect(() => {
