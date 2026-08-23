@@ -17,14 +17,16 @@ export function SelectableText({
   text,
   sectionType,
   className,
+  as: Component = 'p',
 }: {
   text: string
   sectionType: string
   className?: string
+  as?: 'p' | 'span'
 }) {
   const tokens = text.split(/(\b[A-Za-z]+(?:[’'-][A-Za-z]+)*\b)/g)
   return (
-    <p
+    <Component
       className={className}
       data-section-type={sectionType}
       data-source-text={text}
@@ -38,7 +40,7 @@ export function SelectableText({
           token
         ),
       )}
-    </p>
+    </Component>
   )
 }
 

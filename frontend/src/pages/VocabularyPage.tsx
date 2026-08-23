@@ -9,6 +9,7 @@ import {
 } from '../api/vocabulary'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
+import { SpeakButton } from '../components/SpeakButton'
 
 type Filter = 'all' | 'memorization' | 'uncertain'
 
@@ -135,8 +136,14 @@ export default function VocabularyPage() {
               key={item.id}
             >
               <div className="flex flex-wrap items-start justify-between gap-5">
-                <div>
-                  <h2 className="font-serif text-2xl">{item.expression}</h2>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-3">
+                    <h2 className="font-serif text-2xl">{item.expression}</h2>
+                    <SpeakButton
+                      label={`${item.expression}を読み上げる`}
+                      text={item.expression}
+                    />
+                  </div>
                   <p className="mt-2 text-base text-[#b85635]">
                     {item.translationJa}
                   </p>
@@ -178,9 +185,15 @@ export default function VocabularyPage() {
               <div className="mt-5 space-y-3 border-t border-[#18352f]/12 pt-4">
                 {item.sources.map((source) => (
                   <div key={source.id}>
-                    <p className="text-sm leading-7 text-[#18352f]/68">
-                      {source.sourceSentenceEn}
-                    </p>
+                    <div className="flex items-start gap-3">
+                      <p className="min-w-0 flex-1 text-sm leading-7 text-[#18352f]/68">
+                        {source.sourceSentenceEn}
+                      </p>
+                      <SpeakButton
+                        label="出典の英文を読み上げる"
+                        text={source.sourceSentenceEn}
+                      />
+                    </div>
                     <Link
                       className="mt-1 inline-block text-[0.65rem] font-bold text-[#b85635]"
                       to={`/heritage/${source.heritageSiteId}`}

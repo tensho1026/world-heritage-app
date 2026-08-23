@@ -15,7 +15,7 @@ import {
 } from '../api/heritage'
 import { translateArticle } from '../api/translations'
 import { AppShell } from '../components/AppShell'
-import { PageError, PageLoading } from '../components/AsyncState'
+import { PageError } from '../components/AsyncState'
 import { SpeechControls } from '../components/SpeechControls'
 import {
   SelectableText,
@@ -173,7 +173,7 @@ export default function RandomHeritagePage() {
   if (heritageQuery.isPending) {
     return (
       <AppShell>
-        <PageLoading label="次の世界遺産を探しています" />
+        <ReaderSkeleton />
       </AppShell>
     )
   }
@@ -246,6 +246,11 @@ export default function RandomHeritagePage() {
                   Source
                 </a>
               )}
+              {showTranslation && translation?.mainImageCaptionEn && (
+                <span className="mt-1 block text-[#b85635]">
+                  {translation.mainImageCaptionEn}
+                </span>
+              )}
             </figcaption>
           </figure>
 
@@ -261,9 +266,15 @@ export default function RandomHeritagePage() {
             <p className="mt-10 text-[0.68rem] font-extrabold tracking-[0.17em] text-[#b85635] uppercase">
               {site.region ?? 'WORLD'} · {site.statesNames.join(' / ')}
             </p>
-            <h1 className="mt-4 font-serif text-[clamp(2.7rem,5vw,4.8rem)] leading-[1.08] font-medium tracking-[-0.04em]">
-              {site.nameEn}
-            </h1>
+            <VocabularyCapture enabled={captureMode} heritageSiteId={site.uuid}>
+              <h1 className="mt-4 font-serif text-[clamp(2.7rem,5vw,4.8rem)] leading-[1.08] font-medium tracking-[-0.04em]">
+                <SelectableText
+                  as="span"
+                  text={site.nameEn}
+                  sectionType="title"
+                />
+              </h1>
+            </VocabularyCapture>
             {showTranslation && translation?.nameEn && (
               <p className="mt-3 font-serif text-xl text-[#b85635]">
                 {translation.nameEn}
@@ -368,6 +379,8 @@ export default function RandomHeritagePage() {
             }
           />
         </section>
+
+        <AdditionalMedia site={site} />
 
         {(site.mainVideoUrl || site.videoUrls[0]) && (
           <section className="border-t border-[#18352f]/15 py-12">
@@ -481,6 +494,24 @@ function ModeSelector({
         ))}
       </div>
     </div>
+  )
+}
+
+function ReaderSkeleton() {
+  return (
+    <section
+      className="mx-auto grid min-h-[70vh] w-[min(1240px,calc(100%-48px))] animate-pulse grid-cols-2 items-center gap-20 py-14 motion-reduce:animate-none max-[800px]:grid-cols-1 max-[760px]:w-[calc(100%-32px)]"
+      aria-label="次の世界遺産を探しています"
+      role="status"
+    >
+      <div className="aspect-[4/5] bg-[#d9d0bd]/70" />
+      <div>
+        <div className="h-5 w-28 bg-[#d9d0bd]" />
+        <div className="mt-10 h-4 w-52 bg-[#d9d0bd]" />
+        <div className="mt-5 h-20 w-full bg-[#d9d0bd]/80" />
+        <div className="mt-8 h-28 w-full bg-[#d9d0bd]/55" />
+      </div>
+    </section>
   )
 }
 
@@ -664,6 +695,24 @@ function ReaderSidebar({
           <br />
           {coordinate(site.longitude, 'E', 'W')}
         </p>
+        {site.latitude !== null && site.longitude !== null && (
+          <div className="mt-4 overflow-hidden border border-[#18352f]/15 bg-[#e3dccd]">
+            <iframe
+              className="h-44 w-full"
+              loading="lazy"
+              src={openStreetMapEmbedUrl(site.latitude, site.longitude)}
+              title={`${site.nameEn}の地図`}
+            />
+            <a
+              className="block px-3 py-2 text-[0.6rem] text-[#18352f]/55 underline"
+              href={`https://www.openstreetmap.org/?mlat=${site.latitude}&mlon=${site.longitude}#map=8/${site.latitude}/${site.longitude}`}
+              rel="noreferrer"
+              target="_blank"
+            >
+              OpenStreetMapで開く
+            </a>
+          </div>
+        )}
       </div>
       {site.criteriaText && (
         <div>
@@ -695,6 +744,51 @@ function ReaderSidebar({
         </div>
       )}
     </aside>
+  )
+}
+
+function AdditionalMedia({ site }: { site: WorldHeritageSite }) {
+  const excluded = new Set(
+    [site.mainImageUrl, site.wikipediaImageUrl].filter(Boolean),
+  )
+  const images = [...new Set(site.imageUrls)].filter(
+    (url) => url && !excluded.has(url),
+  )
+  if (!images.length) return null
+
+  return (
+    <section className="border-t border-[#18352f]/15 py-12">
+      <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+        IMAGE GALLERY
+      </p>
+      <h2 className="mt-3 font-serif text-3xl">More views</h2>
+      <div className="mt-6 grid grid-cols-3 gap-4 max-[720px]:grid-cols-2 max-[480px]:grid-cols-1">
+        {images.slice(0, 9).map((url) => (
+          <MediaImage key={url} siteName={site.nameEn} url={url} />
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function MediaImage({ url, siteName }: { url: string; siteName: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) return null
+  return (
+    <a
+      className="block aspect-[4/3] overflow-hidden bg-[#d9d0bd] focus-visible:outline-3 focus-visible:outline-[#b85635]"
+      href={url}
+      rel="noreferrer"
+      target="_blank"
+    >
+      <img
+        className="size-full object-cover transition-transform duration-300 hover:scale-[1.02]"
+        src={url}
+        alt={`${siteName}の追加画像`}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    </a>
   )
 }
 
@@ -749,4 +843,15 @@ function coordinate(value: number | null, positive: string, negative: string) {
   return value === null
     ? '—'
     : `${Math.abs(value).toFixed(4)}° ${value >= 0 ? positive : negative}`
+}
+
+function openStreetMapEmbedUrl(latitude: number, longitude: number) {
+  const delta = 0.35
+  const bbox = [
+    longitude - delta,
+    latitude - delta,
+    longitude + delta,
+    latitude + delta,
+  ].join(',')
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${encodeURIComponent(bbox)}&layer=mapnik&marker=${latitude}%2C${longitude}`
 }
