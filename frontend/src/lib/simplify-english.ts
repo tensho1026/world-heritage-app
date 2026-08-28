@@ -39,7 +39,8 @@ export function simplifyEnglish(text: string, level: ReadingLevel) {
   }
   result = result.replace(
     /(^|[.!?]\s+)([a-z])/g,
-    (_, boundary: string, letter: string) => `${boundary}${letter.toUpperCase()}`,
+    (_, boundary: string, letter: string) =>
+      `${boundary}${letter.toUpperCase()}`,
   )
   return result.trim()
 }
