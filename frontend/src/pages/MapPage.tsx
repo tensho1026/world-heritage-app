@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import type { FeatureCollection, Point } from 'geojson'
 import {
   type GeoJSONSource,
   Map as MapLibreMap,
@@ -59,7 +60,7 @@ export default function MapPage() {
   useEffect(() => {
     const map = mapInstance.current
     if (!map || !mapReady || !sites.data) return
-    const geoJson: GeoJSON.FeatureCollection<GeoJSON.Point> = {
+    const geoJson: FeatureCollection<Point> = {
       type: 'FeatureCollection',
       features: sites.data.flatMap((site) =>
         site.longitude === null || site.latitude === null
@@ -154,7 +155,7 @@ export default function MapPage() {
       if (!feature || Number.isNaN(clusterId)) return
       const clusterSource = map.getSource('heritage-sites') as GeoJSONSource
       const zoom = await clusterSource.getClusterExpansionZoom(clusterId)
-      const coordinates = (feature.geometry as GeoJSON.Point).coordinates
+      const coordinates = (feature.geometry as Point).coordinates
       map.easeTo({ center: [coordinates[0], coordinates[1]], zoom })
     })
     map.on('click', 'heritage-points', (event) => {
