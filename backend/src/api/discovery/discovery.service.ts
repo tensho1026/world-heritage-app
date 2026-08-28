@@ -153,9 +153,28 @@ export class DiscoveryService {
   async getThemes() {
     return Promise.all(
       heritageThemes.map(async (theme) => {
-        const query = this.heritageRepository.createQueryBuilder('site');
-        this.applyTheme(query, theme);
-        return { ...theme, count: await query.getCount() };
+        const countQuery = this.heritageRepository.createQueryBuilder('site');
+        const imageQuery = this.heritageRepository.createQueryBuilder('site');
+        this.applyTheme(countQuery, theme);
+        this.applyTheme(imageQuery, theme);
+        const [count, representative] = await Promise.all([
+          countQuery.getCount(),
+          imageQuery
+            .andWhere(
+              '(site.mainImageUrl IS NOT NULL OR site.wikipediaImageUrl IS NOT NULL)',
+            )
+            .orderBy('site.isFeatured', 'DESC')
+            .addOrderBy('site.nameEn', 'ASC')
+            .getOne(),
+        ]);
+        return {
+          ...theme,
+          count,
+          mainImageUrl:
+            representative?.mainImageUrl ??
+            representative?.wikipediaImageUrl ??
+            null,
+        };
       }),
     );
   }
@@ -250,7 +269,7 @@ export class DiscoveryService {
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
     return summaries.map((summary) => ({
       ...summary,
-      historicalPeriod: this.historicalPeriod(siteMap.get(summary.uuid)!),
+      historicalPeriods: this.historicalPeriods(siteMap.get(summary.uuid)!),
     }));
   }
 
@@ -296,21 +315,24 @@ export class DiscoveryService {
     }
   }
 
-  private historicalPeriod(site: WorldHeritageSite) {
+  private historicalPeriods(site: WorldHeritageSite) {
+    if (site.historicalPeriods?.length) return site.historicalPeriods;
     if (site.historicalPeriodStart != null) {
-      return {
-        start: site.historicalPeriodStart,
-        end: site.historicalPeriodEnd,
-        label:
-          site.historicalPeriodLabel ??
-          this.formatHistoricalYear(site.historicalPeriodStart),
-        type: site.historicalPeriodType ?? '成立',
-        sourceUrl:
-          site.historicalPeriodSourceUrl ??
-          `https://whc.unesco.org/en/list/${site.unescoId}`,
-        approximate: site.historicalPeriodApproximate,
-        verified: site.historicalPeriodVerified,
-      };
+      return [
+        {
+          start: site.historicalPeriodStart,
+          end: site.historicalPeriodEnd,
+          label:
+            site.historicalPeriodLabel ??
+            this.formatHistoricalYear(site.historicalPeriodStart),
+          type: site.historicalPeriodType ?? '成立',
+          sourceUrl:
+            site.historicalPeriodSourceUrl ??
+            `https://whc.unesco.org/en/list/${site.unescoId}`,
+          approximate: site.historicalPeriodApproximate,
+          verified: site.historicalPeriodVerified,
+        },
+      ];
     }
     const text = [
       site.shortDescriptionEn,
@@ -326,31 +348,35 @@ export class DiscoveryService {
       const number = Number(century[1]);
       const beforeCommonEra = /BC|BCE/i.test(century[2] ?? '');
       const start = beforeCommonEra ? -number * 100 : (number - 1) * 100;
-      return {
-        start,
-        end: start + 99,
-        label: century[0],
-        type: '本文に記載された年代',
-        sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
-        approximate: true,
-        verified: false,
-      };
+      return [
+        {
+          start,
+          end: start + 99,
+          label: century[0],
+          type: '本文に記載された年代',
+          sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
+          approximate: true,
+          verified: false,
+        },
+      ];
     }
     const datedEvent = text.match(
       /\b(?:built|founded|established|constructed|created|developed|dates? back to|dating from)[^.!?]{0,45}?\b(\d{3,4})\b/i,
     );
     if (datedEvent) {
-      return {
-        start: Number(datedEvent[1]),
-        end: null,
-        label: datedEvent[0],
-        type: '本文に記載された年代',
-        sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
-        approximate: true,
-        verified: false,
-      };
+      return [
+        {
+          start: Number(datedEvent[1]),
+          end: null,
+          label: datedEvent[0],
+          type: '本文に記載された年代',
+          sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
+          approximate: true,
+          verified: false,
+        },
+      ];
     }
-    return null;
+    return [];
   }
 
   private formatHistoricalYear(year: number) {

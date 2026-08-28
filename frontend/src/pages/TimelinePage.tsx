@@ -9,6 +9,13 @@ import type { DiscoveryFilters, HeritageTimelineItem } from '../types'
 
 type TimelineMode = 'historical' | 'unesco'
 type Era = 'all' | 'ancient' | 'medieval' | 'early-modern' | 'modern'
+type TimelinePeriod = HeritageTimelineItem['historicalPeriods'][number]
+type TimelineEntryData = {
+  key: string
+  site: HeritageTimelineItem
+  period: TimelinePeriod | null
+  year: number
+}
 
 const eras: Array<{ value: Era; label: string; min: number; max: number }> = [
   { value: 'all', label: 'すべて', min: -10_000, max: 3_000 },
@@ -34,17 +41,34 @@ export default function TimelinePage() {
   const visible = useMemo(() => {
     const selectedEra = eras.find((item) => item.value === era)!
     return (timeline.data ?? [])
-      .filter((site) => {
-        const year = timelineYear(site, mode)
-        return (
-          year !== null && year >= selectedEra.min && year <= selectedEra.max
-        )
-      })
-      .sort((a, b) => timelineYear(a, mode)! - timelineYear(b, mode)!)
+      .flatMap<TimelineEntryData>((site) =>
+        mode === 'historical'
+          ? site.historicalPeriods.map((period, periodIndex) => ({
+              key: `${site.uuid}-${periodIndex}-${period.start}`,
+              site,
+              period,
+              year: period.start,
+            }))
+          : site.dateInscribed === null
+            ? []
+            : [
+                {
+                  key: site.uuid,
+                  site,
+                  period: null,
+                  year: site.dateInscribed,
+                },
+              ],
+      )
+      .filter(
+        (entry) =>
+          entry.year >= selectedEra.min && entry.year <= selectedEra.max,
+      )
+      .sort((a, b) => a.year - b.year)
   }, [era, mode, timeline.data])
   const unknown =
     mode === 'historical'
-      ? (timeline.data ?? []).filter((site) => !site.historicalPeriod)
+      ? (timeline.data ?? []).filter((site) => !site.historicalPeriods.length)
       : []
 
   return (
@@ -122,8 +146,8 @@ export default function TimelinePage() {
               {visible.length}件を年代順に表示
             </p>
             <ol className="relative mt-6 ml-4 border-l border-[#b85635]/35 pl-8">
-              {visible.map((site) => (
-                <TimelineEntry key={site.uuid} mode={mode} site={site} />
+              {visible.map((entry) => (
+                <TimelineEntry entry={entry} key={entry.key} mode={mode} />
               ))}
             </ol>
             {!visible.length && (
@@ -156,21 +180,14 @@ export default function TimelinePage() {
   )
 }
 
-function timelineYear(site: HeritageTimelineItem, mode: TimelineMode) {
-  return mode === 'historical'
-    ? (site.historicalPeriod?.start ?? null)
-    : site.dateInscribed
-}
-
 function TimelineEntry({
-  site,
+  entry,
   mode,
 }: {
-  site: HeritageTimelineItem
+  entry: TimelineEntryData
   mode: TimelineMode
 }) {
-  const period = site.historicalPeriod
-  const year = timelineYear(site, mode)!
+  const { site, period, year } = entry
   const label =
     mode === 'unesco' ? `${year}年登録` : period?.label || formatYear(year)
   return (

@@ -12,7 +12,8 @@ export class AddHistoricalPeriods1760000005000 implements MigrationInterface {
       ADD COLUMN IF NOT EXISTS "historicalPeriodType" varchar(40),
       ADD COLUMN IF NOT EXISTS "historicalPeriodSourceUrl" text,
       ADD COLUMN IF NOT EXISTS "historicalPeriodApproximate" boolean NOT NULL DEFAULT false,
-      ADD COLUMN IF NOT EXISTS "historicalPeriodVerified" boolean NOT NULL DEFAULT false
+      ADD COLUMN IF NOT EXISTS "historicalPeriodVerified" boolean NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS "historicalPeriods" jsonb NOT NULL DEFAULT '[]'::jsonb
     `);
     await queryRunner.query(
       `CREATE INDEX IF NOT EXISTS "IDX_heritage_historical_period_start" ON "world_heritage_site" ("historicalPeriodStart")`,
@@ -25,6 +26,7 @@ export class AddHistoricalPeriods1760000005000 implements MigrationInterface {
     );
     await queryRunner.query(`
       ALTER TABLE "world_heritage_site"
+      DROP COLUMN IF EXISTS "historicalPeriods",
       DROP COLUMN IF EXISTS "historicalPeriodVerified",
       DROP COLUMN IF EXISTS "historicalPeriodApproximate",
       DROP COLUMN IF EXISTS "historicalPeriodSourceUrl",

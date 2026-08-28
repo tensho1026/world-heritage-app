@@ -1,6 +1,7 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { recordPracticeAttempt } from '../api/practice'
+import { getVocabulary } from '../api/vocabulary'
 import {
   comparePracticeAnswer,
   normalizePracticeText,
@@ -24,9 +25,15 @@ export function DictationPractice({
   const [hintsUsed, setHintsUsed] = useState(0)
   const [playbackCount, setPlaybackCount] = useState(0)
   const [rate, setRate] = useState(0.85)
+  const [paused, setPaused] = useState(false)
   const [translation, setTranslation] = useState<string>()
   const [translationPending, setTranslationPending] = useState(false)
   const sentence = sentences[index] ?? ''
+  const translatedSentences = (translation ?? '')
+    .split(/(?<=[。！？])\s*/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+  const translationJa = translatedSentences[index] ?? translation
   const result = submitted ? comparePracticeAnswer(answer, sentence) : undefined
   const speechAvailable =
     typeof window !== 'undefined' && 'speechSynthesis' in window
@@ -42,6 +49,18 @@ export function DictationPractice({
         playbackCount,
       }),
   })
+  const vocabulary = useQuery({
+    queryKey: ['vocabulary', 'practice', heritageSiteId],
+    queryFn: () => getVocabulary({ heritageSiteId }),
+    enabled: open,
+  })
+  const savedExpressions = (vocabulary.data ?? [])
+    .map((item) => item.expression)
+    .filter((expression) =>
+      normalizePracticeText(sentence).includes(
+        normalizePracticeText(expression),
+      ),
+    )
 
   function play(words = sentence) {
     if (!speechAvailable || !words) return
@@ -50,7 +69,18 @@ export function DictationPractice({
     utterance.lang = 'en-US'
     utterance.rate = rate
     window.speechSynthesis.speak(utterance)
+    setPaused(false)
     setPlaybackCount((value) => value + 1)
+  }
+
+  function togglePause() {
+    if (!speechAvailable) return
+    if (paused) {
+      window.speechSynthesis.resume()
+    } else {
+      window.speechSynthesis.pause()
+    }
+    setPaused((value) => !value)
   }
 
   function next() {
@@ -60,6 +90,8 @@ export function DictationPractice({
     setHintsUsed(0)
     setPlaybackCount(0)
     setTranslation(undefined)
+    window.speechSynthesis?.cancel()
+    setPaused(false)
     saveAttempt.reset()
   }
 
@@ -107,6 +139,14 @@ export function DictationPractice({
               type="button"
             >
               ▶ 一文を再生
+            </button>
+            <button
+              className="border border-[#18352f]/25 px-3 py-2.5 text-xs font-bold disabled:opacity-40"
+              disabled={!speechAvailable}
+              onClick={togglePause}
+              type="button"
+            >
+              {paused ? '▶ 再開' : '⏸ 一時停止'}
             </button>
             <button
               className="border border-[#18352f]/25 px-3 py-2.5 text-xs font-bold disabled:opacity-40"
@@ -161,6 +201,14 @@ export function DictationPractice({
             >
               ヒント2: 頭文字
             </button>
+            <button
+              className="text-xs font-bold text-[#b85635] underline"
+              disabled={hintsUsed >= 3}
+              onClick={() => setHintsUsed(3)}
+              type="button"
+            >
+              ヒント3: 保存済み語彙
+            </button>
           </div>
           {hintsUsed >= 1 && (
             <p className="mt-2 text-xs">{words.length}語の英文です。</p>
@@ -168,6 +216,14 @@ export function DictationPractice({
           {hintsUsed >= 2 && (
             <p className="mt-2 font-mono text-xs tracking-[0.16em]">
               {words.map((word) => normalizePracticeText(word)[0]).join(' ')}
+            </p>
+          )}
+          {hintsUsed >= 3 && (
+            <p className="mt-2 text-xs">
+              保存済み語彙:{' '}
+              {savedExpressions.length
+                ? savedExpressions.join(' / ')
+                : 'この文に含まれる保存済み語彙はありません'}
             </p>
           )}
 
@@ -209,9 +265,9 @@ export function DictationPractice({
                   </span>
                 ))}
               </div>
-              {translation ? (
+              {translationJa ? (
                 <p className="mt-4 border-t border-[#18352f]/10 pt-4 text-sm leading-7 text-[#b85635]">
-                  {translation}
+                  {translationJa}
                 </p>
               ) : (
                 <button
@@ -239,6 +295,12 @@ export function DictationPractice({
                 >
                   次の一文
                 </button>
+                <a
+                  className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
+                  href="#about-site"
+                >
+                  元の記事へ
+                </a>
               </div>
               {saveAttempt.isError && (
                 <p className="mt-3 text-xs text-[#b85635]">

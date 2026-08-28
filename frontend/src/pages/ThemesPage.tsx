@@ -48,25 +48,35 @@ export default function ThemesPage() {
                 <div className="mt-5 grid grid-cols-3 gap-5 max-[800px]:grid-cols-2 max-[520px]:grid-cols-1">
                   {grouped.map((theme, index) => (
                     <Link
-                      className="group min-h-56 border border-[#18352f]/15 bg-white/45 p-6 shadow-[7px_7px_0_rgb(201_140_71_/_13%)] transition-transform hover:-translate-y-1"
+                      className="group overflow-hidden border border-[#18352f]/15 bg-white/45 shadow-[7px_7px_0_rgb(201_140_71_/_13%)] transition-transform hover:-translate-y-1"
                       key={theme.slug}
                       to={`/explore?theme=${encodeURIComponent(theme.slug)}`}
                     >
-                      <span className="font-serif text-5xl text-[#c98c47]/35">
-                        {String(index + 1).padStart(2, '0')}
-                      </span>
-                      <h2 className="mt-5 font-serif text-2xl">
-                        {theme.nameJa}
-                      </h2>
-                      <p className="mt-1 text-xs font-bold tracking-[0.08em] text-[#b85635]">
-                        {theme.nameEn}
-                      </p>
-                      <p className="mt-4 text-xs leading-6 text-[#18352f]/55">
-                        {theme.descriptionJa}
-                      </p>
-                      <span className="mt-5 block text-xs font-bold">
-                        {theme.count}件を見る →
-                      </span>
+                      <div className="relative h-32 bg-[#d9d0bd]">
+                        {theme.mainImageUrl && (
+                          <img
+                            alt=""
+                            className="size-full object-cover opacity-80 transition-transform group-hover:scale-105"
+                            loading="lazy"
+                            src={theme.mainImageUrl}
+                          />
+                        )}
+                        <span className="absolute bottom-2 left-3 font-serif text-4xl text-white drop-shadow">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <div className="p-6">
+                        <h3 className="font-serif text-2xl">{theme.nameJa}</h3>
+                        <p className="mt-1 text-xs font-bold tracking-[0.08em] text-[#b85635]">
+                          {theme.nameEn}
+                        </p>
+                        <p className="mt-4 text-xs leading-6 text-[#18352f]/55">
+                          {theme.descriptionJa}
+                        </p>
+                        <span className="mt-5 block text-xs font-bold">
+                          {theme.count}件を見る →
+                        </span>
+                      </div>
                     </Link>
                   ))}
                 </div>

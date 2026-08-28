@@ -33,6 +33,16 @@ export type HeritageComponent = {
   longitude: number;
 };
 
+export type HistoricalPeriod = {
+  start: number;
+  end: number | null;
+  label: string;
+  type: string;
+  sourceUrl: string;
+  approximate: boolean;
+  verified: boolean;
+};
+
 @Entity()
 @Index(['latitude', 'longitude'])
 export class WorldHeritageSite {
@@ -85,6 +95,9 @@ export class WorldHeritageSite {
 
   @Column({ type: 'boolean', default: false })
   historicalPeriodVerified: boolean;
+
+  @Column({ type: 'jsonb', default: () => "'[]'::jsonb" })
+  historicalPeriods: HistoricalPeriod[];
 
   @Index()
   @Column({ type: 'boolean', default: false })

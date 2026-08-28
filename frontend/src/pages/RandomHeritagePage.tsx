@@ -389,7 +389,7 @@ export default function RandomHeritagePage() {
         )}
 
         <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-[clamp(50px,8vw,120px)] py-16 max-[900px]:grid-cols-1">
-          <article>
+          <article id="about-site">
             <p className="text-[0.65rem] font-extrabold tracking-[0.2em] text-[#b85635] uppercase">
               ABOUT THE SITE
             </p>

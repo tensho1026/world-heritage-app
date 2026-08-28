@@ -427,6 +427,11 @@ function ChallengeCard({
           style={{ width: `${challenge.percentage}%` }}
         />
       </div>
+      <p className="mt-2 text-[0.62rem] font-bold text-[#18352f]/45">
+        {challenge.completed
+          ? `目標達成後も月末まで集計中（現在 ${challenge.progress}件）`
+          : `達成まであと ${Math.max(0, challenge.target - challenge.progress)}件`}
+      </p>
       {challenge.note && (
         <p className="mt-4 text-xs leading-6 text-[#18352f]/55">
           {challenge.note}

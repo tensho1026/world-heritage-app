@@ -17,6 +17,15 @@ export type WorldHeritageSite = {
   historicalPeriodSourceUrl?: string | null
   historicalPeriodApproximate?: boolean
   historicalPeriodVerified?: boolean
+  historicalPeriods?: Array<{
+    start: number
+    end: number | null
+    label: string
+    type: string
+    sourceUrl: string
+    approximate: boolean
+    verified: boolean
+  }>
   danger: boolean
   dangerList: string | null
   areaHectares: number | null
@@ -189,7 +198,7 @@ export type HeritageMapProgress = {
 }
 
 export type HeritageTimelineItem = DiscoverySite & {
-  historicalPeriod: {
+  historicalPeriods: Array<{
     start: number
     end: number | null
     label: string
@@ -197,7 +206,7 @@ export type HeritageTimelineItem = DiscoverySite & {
     sourceUrl: string
     approximate: boolean
     verified: boolean
-  } | null
+  }>
 }
 
 export type DiscoveryFilters = {
@@ -228,6 +237,7 @@ export type HeritageTheme = {
   nameEn: string
   descriptionJa: string
   count: number
+  mainImageUrl: string | null
 }
 
 export type QuizQuestion = {

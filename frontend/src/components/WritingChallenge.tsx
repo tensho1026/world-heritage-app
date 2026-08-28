@@ -1,7 +1,12 @@
-import { useMutation } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { recordPracticeAttempt } from '../api/practice'
-import { comparePracticeAnswer, practiceSentences } from '../lib/practice'
+import { getVocabulary } from '../api/vocabulary'
+import {
+  comparePracticeAnswer,
+  normalizePracticeText,
+  practiceSentences,
+} from '../lib/practice'
 
 export function WritingChallenge({
   heritageSiteId,
@@ -39,6 +44,18 @@ export function WritingChallenge({
         playbackCount: 0,
       }),
   })
+  const vocabulary = useQuery({
+    queryKey: ['vocabulary', 'practice', heritageSiteId],
+    queryFn: () => getVocabulary({ heritageSiteId }),
+    enabled: open,
+  })
+  const savedExpressions = (vocabulary.data ?? [])
+    .map((item) => item.expression)
+    .filter((expression) =>
+      normalizePracticeText(sentence).includes(
+        normalizePracticeText(expression),
+      ),
+    )
 
   async function begin() {
     setOpen(true)
@@ -125,7 +142,7 @@ export function WritingChallenge({
               onClick={() => setHintsUsed(2)}
               type="button"
             >
-              ヒント2: 重要語彙
+              ヒント2: 頭文字
             </button>
             <button
               className="text-[#b85635] underline disabled:opacity-40"
@@ -133,18 +150,33 @@ export function WritingChallenge({
               onClick={() => setHintsUsed(3)}
               type="button"
             >
-              ヒント3: 語順候補
+              ヒント3: 重要語彙
+            </button>
+            <button
+              className="text-[#b85635] underline disabled:opacity-40"
+              disabled={hintsUsed >= 4}
+              onClick={() => setHintsUsed(4)}
+              type="button"
+            >
+              ヒント4: 語順候補
             </button>
           </div>
           {hintsUsed >= 1 && (
             <p className="mt-2 text-xs">原文は{expectedWords.length}語です。</p>
           )}
           {hintsUsed >= 2 && (
+            <p className="mt-2 font-mono text-xs tracking-[0.16em]">
+              {expectedWords
+                .map((word) => normalizePracticeText(word)[0])
+                .join(' ')}
+            </p>
+          )}
+          {hintsUsed >= 3 && (
             <p className="mt-2 text-xs">
               重要語彙: {keywords.length ? keywords.join(' / ') : 'なし'}
             </p>
           )}
-          {hintsUsed >= 3 && (
+          {hintsUsed >= 4 && (
             <p className="mt-2 text-xs leading-6 text-[#18352f]/60">
               {expectedWords
                 .map((word, wordIndex) => (wordIndex % 3 === 0 ? word : '____'))
@@ -194,6 +226,25 @@ export function WritingChallenge({
                 UNESCO記事の原文
               </p>
               <p className="mt-2 text-sm leading-7">{sentence}</p>
+              <div
+                className="mt-3 flex flex-wrap gap-1"
+                aria-label="原文との差分"
+              >
+                {result.comparison.map((item, wordIndex) => (
+                  <span
+                    className={`px-1.5 py-1 text-xs ${item.status === 'correct' ? 'bg-[#4f8871]/15 text-[#315f4c]' : 'bg-[#b85635]/12 text-[#b85635]'}`}
+                    key={`${item.word}-${wordIndex}`}
+                  >
+                    {item.word}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-[#18352f]/55">
+                この文の保存済み語彙:{' '}
+                {savedExpressions.length
+                  ? savedExpressions.join(' / ')
+                  : 'まだありません'}
+              </p>
               <p className="mt-4 text-xs leading-6 text-[#18352f]/55">
                 この判定は原文の再現度を見るものです。完全一致しなくても、あなたの英文が文法的に誤りとは限りません。原文だけが唯一の正解表現ではありません。
               </p>
@@ -213,6 +264,12 @@ export function WritingChallenge({
                 >
                   次の一文
                 </button>
+                <a
+                  className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
+                  href="#about-site"
+                >
+                  元の記事へ
+                </a>
               </div>
               {saveAttempt.isError && (
                 <p className="mt-3 text-xs text-[#b85635]">
