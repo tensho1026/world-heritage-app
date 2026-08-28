@@ -1,1 +1,10 @@
 @import 'tailwindcss';
+
+.vocabulary-capture--enabled [data-vocabulary-word] {
+  cursor: pointer;
+  border-radius: 0.125rem;
+}
+
+.vocabulary-capture--enabled [data-vocabulary-word]:hover {
+  background: rgb(231 199 120 / 45%);
+}
