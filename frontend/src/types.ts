@@ -309,3 +309,39 @@ export type WeeklyReport = {
   quizAttempts: number
   quizAccuracy: number | null
 }
+
+export type ChallengeMetric =
+  | 'unique_sites'
+  | 'new_countries'
+  | 'filtered_reads'
+  | 'vocabulary_saved'
+  | 'vocabulary_reviews'
+  | 'quiz_attempts'
+  | 'dictation_attempts'
+  | 'writing_attempts'
+
+export type ChallengeFilters = {
+  country?: string
+  region?: string
+  category?: HeritageCategory | ''
+  theme?: string
+}
+
+export type MonthlyChallengeInput = {
+  name: string
+  month: string
+  metric: ChallengeMetric
+  target: number
+  filters: ChallengeFilters
+  note: string
+}
+
+export type MonthlyChallenge = MonthlyChallengeInput & {
+  id: number
+  progress: number
+  percentage: number
+  completed: boolean
+  status: 'upcoming' | 'active' | 'ended'
+  createdAt: string
+  updatedAt: string
+}
