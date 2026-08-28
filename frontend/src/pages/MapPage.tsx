@@ -28,6 +28,7 @@ const mapStyle =
   import.meta.env.VITE_MAP_STYLE_URL ||
   'https://tiles.openfreemap.org/styles/liberty'
 const countryGeoJsonUrl =
+  import.meta.env.VITE_COUNTRY_GEOJSON_URL ||
   'https://raw.githubusercontent.com/datasets/geo-countries/main/data/countries.geojson'
 
 export default function MapPage() {

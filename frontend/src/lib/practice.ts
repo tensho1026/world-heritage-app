@@ -40,13 +40,22 @@ export function comparePracticeAnswer(answer: string, expected: string) {
   }
   const correct = matrix[expectedWords.length][actualWords.length]
   const denominator = Math.max(expectedWords.length, actualWords.length, 1)
-  const score = Math.round((correct / denominator) * 100)
+  const orderScore = Math.round((correct / denominator) * 100)
+  const vocabularyMatches = expectedWords.filter((word) =>
+    actualWords.includes(word),
+  ).length
+  const vocabularyScore = Math.round(
+    (vocabularyMatches / Math.max(expectedWords.length, 1)) * 100,
+  )
+  const score = Math.round((orderScore + vocabularyScore) / 2)
   const importantWords = expectedWords.filter(
     (word) => word.length >= 6 && !commonWords.has(word),
   )
   const keywords = [...new Set(importantWords)].slice(0, 8)
   return {
     score,
+    orderScore,
+    vocabularyScore,
     expectedWords,
     actualWords,
     matchedKeywords: keywords.filter((word) => actualWords.includes(word)),

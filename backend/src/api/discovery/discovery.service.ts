@@ -347,11 +347,11 @@ export class DiscoveryService {
     if (century) {
       const number = Number(century[1]);
       const beforeCommonEra = /BC|BCE/i.test(century[2] ?? '');
-      const start = beforeCommonEra ? -number * 100 : (number - 1) * 100;
+      const start = beforeCommonEra ? -number * 100 : (number - 1) * 100 + 1;
       return [
         {
           start,
-          end: start + 99,
+          end: beforeCommonEra ? start + 99 : number * 100,
           label: century[0],
           type: '本文に記載された年代',
           sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,

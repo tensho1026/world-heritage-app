@@ -202,6 +202,11 @@ function TimelineEntry({
                 {period.type} ·{' '}
                 {period.verified ? '確認済み' : '本文から抽出した推定'}
               </p>
+              {period.end !== null && (
+                <p className="mt-1 text-[0.62rem] text-[#18352f]/50">
+                  {formatYear(period.start)}–{formatYear(period.end)}
+                </p>
+              )}
               <a
                 className="mt-2 inline-block text-[0.62rem] font-bold text-[#b85635] underline"
                 href={period.sourceUrl}

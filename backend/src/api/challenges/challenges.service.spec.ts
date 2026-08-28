@@ -10,7 +10,7 @@ import { QuizAttempt } from '../../database/entities/quiz-attempt.entity';
 import { SavedVocabulary } from '../../database/entities/saved-vocabulary.entity';
 import { VocabularyReview } from '../../database/entities/vocabulary-review.entity';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
-import { ChallengesService } from './challenges.service';
+import { challengeMonthRange, ChallengesService } from './challenges.service';
 
 describe('ChallengesService', () => {
   const challengeRepository = {
@@ -75,5 +75,12 @@ describe('ChallengesService', () => {
         filters: {},
       }),
     ).rejects.toThrow('month must use YYYY-MM');
+  });
+
+  it('uses Asia/Tokyo month boundaries including December rollover', () => {
+    const range = challengeMonthRange('2026-12');
+    expect(range.start.toISOString()).toBe('2026-11-30T15:00:00.000Z');
+    expect(range.end.toISOString()).toBe('2026-12-31T15:00:00.000Z');
+    expect(range.endInclusive.getTime()).toBe(range.end.getTime() - 1);
   });
 });

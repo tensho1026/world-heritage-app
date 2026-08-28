@@ -76,6 +76,13 @@ export function WritingChallenge({
     saveAttempt.reset()
   }
 
+  function retry() {
+    setAnswer('')
+    setSubmitted(false)
+    setHintsUsed(0)
+    saveAttempt.reset()
+  }
+
   if (!sentences.length) return null
   const expectedWords = sentence.replace(/[.!?]/g, '').split(/\s+/)
   const keywords = comparePracticeAnswer('', sentence).keywords
@@ -204,10 +211,10 @@ export function WritingChallenge({
 
           {result && (
             <div className="mt-6 border-l-4 border-[#c98c47] bg-[#fbf8f1] p-5">
-              <div className="grid grid-cols-2 gap-4 max-[560px]:grid-cols-1">
+              <div className="grid grid-cols-3 gap-4 max-[680px]:grid-cols-1">
                 <div>
                   <span className="text-[0.62rem] font-bold text-[#18352f]/50">
-                    原文との語順・語彙一致
+                    原文との総合一致
                   </span>
                   <strong className="mt-1 block font-serif text-3xl">
                     {result.score}%
@@ -219,6 +226,14 @@ export function WritingChallenge({
                   </span>
                   <strong className="mt-1 block font-serif text-3xl">
                     {result.matchedKeywords.length}/{result.keywords.length}
+                  </strong>
+                </div>
+                <div>
+                  <span className="text-[0.62rem] font-bold text-[#18352f]/50">
+                    語順の近さ
+                  </span>
+                  <strong className="mt-1 block font-serif text-3xl">
+                    {result.orderScore}%
                   </strong>
                 </div>
               </div>
@@ -263,6 +278,13 @@ export function WritingChallenge({
                   type="button"
                 >
                   次の一文
+                </button>
+                <button
+                  className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
+                  onClick={retry}
+                  type="button"
+                >
+                  同じ文を再挑戦
                 </button>
                 <a
                   className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"

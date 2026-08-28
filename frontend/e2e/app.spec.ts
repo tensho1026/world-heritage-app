@@ -296,6 +296,59 @@ test('searches World Heritage sites with combined filters', async ({
   await expect(page.getByText('Palace and Park of Versailles')).toBeVisible()
 })
 
+test('browses an illustrated theme and opens a random matching site', async ({
+  page,
+}) => {
+  await page.route(/\/api\/discovery\/themes$/, (route) =>
+    route.fulfill({
+      json: [
+        {
+          slug: 'natural-heritage',
+          group: 'category',
+          nameJa: '自然遺産',
+          nameEn: 'Natural Heritage',
+          descriptionJa: '自然を守る世界遺産',
+          count: 12,
+          mainImageUrl: 'https://example.com/natural.jpg',
+        },
+      ],
+    }),
+  )
+  await page.route('**/api/discovery/filters', (route) =>
+    route.fulfill({
+      json: {
+        regions: ['Asia and the Pacific'],
+        countries: [],
+        years: [],
+        categories: ['Cultural', 'Natural', 'Mixed'],
+        comprehensionLevels: ['difficult', 'partial', 'understood'],
+      },
+    }),
+  )
+  await page.route('**/api/discovery/sites**', (route) =>
+    route.fulfill({ json: [{ ...heritage, readCount: 0 }] }),
+  )
+  await page.route('**/api/discovery/random**', (route) =>
+    route.fulfill({ json: { ...heritage, readCount: 0 } }),
+  )
+
+  await page.goto('/themes')
+  await expect(
+    page.getByRole('heading', { name: 'UNESCOの遺産区分から探す' }),
+  ).toBeVisible()
+  await expect(
+    page.locator('img[src="https://example.com/natural.jpg"]'),
+  ).toBeVisible()
+  await page.getByRole('link', { name: /自然遺産/ }).click()
+  await expect(page).toHaveURL(/theme=natural-heritage/)
+  await page.getByLabel('地域').selectOption('Asia and the Pacific')
+  await page.getByLabel('カテゴリー').selectOption('Natural')
+  await page.getByRole('button', { name: 'この条件で探す' }).click()
+  await expect(page).toHaveURL(/region=Asia/)
+  await page.getByRole('button', { name: 'この条件からランダムに読む' }).click()
+  await expect(page).toHaveURL(new RegExp(`/heritage/${heritage.uuid}$`))
+})
+
 test('shows learning calendar and weekly report', async ({ page }) => {
   await mockHomeApi(page)
   await page.route('**/api/reports/calendar**', (route) =>

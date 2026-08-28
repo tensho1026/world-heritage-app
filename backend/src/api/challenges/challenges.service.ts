@@ -30,6 +30,17 @@ export type ChallengeInput = {
   note?: unknown;
 };
 
+export function challengeMonthRange(month: string) {
+  const [year, monthNumber] = month.split('-').map(Number);
+  const start = new Date(`${month}-01T00:00:00+09:00`);
+  const nextYear = monthNumber === 12 ? year + 1 : year;
+  const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
+  const end = new Date(
+    `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+09:00`,
+  );
+  return { start, end, endInclusive: new Date(end.getTime() - 1) };
+}
+
 @Injectable()
 export class ChallengesService {
   constructor(
@@ -81,7 +92,7 @@ export class ChallengesService {
 
   private async withProgress(challenge: MonthlyChallenge) {
     const progress = await this.calculateProgress(challenge);
-    const { start, end } = this.monthRange(challenge.month);
+    const { start, end } = challengeMonthRange(challenge.month);
     const now = new Date();
     return {
       ...challenge,
@@ -96,7 +107,7 @@ export class ChallengesService {
   }
 
   private async calculateProgress(challenge: MonthlyChallenge) {
-    const { start, endInclusive } = this.monthRange(challenge.month);
+    const { start, endInclusive } = challengeMonthRange(challenge.month);
     const range = Between(start, endInclusive);
     switch (challenge.metric) {
       case ChallengeMetric.VOCABULARY_SAVED:
@@ -147,9 +158,12 @@ export class ChallengesService {
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
     const countriesFor = (reads: HeritageRead[]) =>
       new Set(
-        reads.flatMap(
-          (read) => siteMap.get(read.heritageSiteId)?.isoCodes ?? [],
-        ),
+        reads.flatMap((read) => {
+          const site = siteMap.get(read.heritageSiteId);
+          return site?.isoCodes.length
+            ? site.isoCodes
+            : (site?.statesNames ?? []);
+        }),
       );
     const current = countriesFor(currentReads);
     const previous = countriesFor(previousReads);
@@ -225,27 +239,20 @@ export class ChallengesService {
   }
 
   private string(value: unknown, name: string, min: number, max: number) {
-    if (typeof value !== 'string' || value.length < min || value.length > max) {
+    if (typeof value !== 'string') {
       throw new BadRequestException(`${name} is invalid.`);
     }
-    return value.trim();
+    const trimmed = value.trim();
+    if (trimmed.length < min || trimmed.length > max) {
+      throw new BadRequestException(`${name} is invalid.`);
+    }
+    return trimmed;
   }
 
   private validateMonth(month: string) {
     if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) {
       throw new BadRequestException('month must use YYYY-MM format.');
     }
-  }
-
-  private monthRange(month: string) {
-    const [year, monthNumber] = month.split('-').map(Number);
-    const start = new Date(`${month}-01T00:00:00+09:00`);
-    const nextYear = monthNumber === 12 ? year + 1 : year;
-    const nextMonth = monthNumber === 12 ? 1 : monthNumber + 1;
-    const end = new Date(
-      `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+09:00`,
-    );
-    return { start, end, endInclusive: new Date(end.getTime() - 1) };
   }
 
   private async requireChallenge(id: number) {

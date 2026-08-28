@@ -95,6 +95,14 @@ export function DictationPractice({
     saveAttempt.reset()
   }
 
+  function retry() {
+    setAnswer('')
+    setSubmitted(false)
+    setHintsUsed(0)
+    setPlaybackCount(0)
+    saveAttempt.reset()
+  }
+
   async function loadTranslation() {
     setTranslationPending(true)
     try {
@@ -294,6 +302,13 @@ export function DictationPractice({
                   type="button"
                 >
                   次の一文
+                </button>
+                <button
+                  className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
+                  onClick={retry}
+                  type="button"
+                >
+                  同じ文を再挑戦
                 </button>
                 <a
                   className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
