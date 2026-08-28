@@ -149,6 +149,12 @@ export class WorldHeritageSite {
   @Column({ type: 'text', nullable: true })
   mainImageCaptionEn: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  mainImageSourceUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  mainImageLicense: string | null;
+
   @Column({
     type: 'text',
     array: true,
@@ -177,6 +183,25 @@ export class WorldHeritageSite {
 
   @Column({ type: 'smallint', default: 0 })
   componentsCount: number;
+
+  @Index()
+  @Column({ type: 'boolean', default: false })
+  isFeatured: boolean;
+
+  @Column({ type: 'text', nullable: true })
+  wikipediaImageUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  wikipediaPageUrl: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  wikipediaImageAuthor: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  wikipediaImageLicense: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  wikipediaImageFetchedAt: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;
