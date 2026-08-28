@@ -10,6 +10,22 @@ export type WorldHeritageSite = {
   descriptionEn: string | null
   justificationEn: string | null
   dateInscribed: number | null
+  historicalPeriodStart?: number | null
+  historicalPeriodEnd?: number | null
+  historicalPeriodLabel?: string | null
+  historicalPeriodType?: string | null
+  historicalPeriodSourceUrl?: string | null
+  historicalPeriodApproximate?: boolean
+  historicalPeriodVerified?: boolean
+  historicalPeriods?: Array<{
+    start: number
+    end: number | null
+    label: string
+    type: string
+    sourceUrl: string
+    approximate: boolean
+    verified: boolean
+  }>
   danger: boolean
   dangerList: string | null
   areaHectares: number | null
@@ -149,6 +165,7 @@ export type DiscoverySite = {
   nameEn: string
   shortDescriptionEn: string | null
   statesNames: string[]
+  isoCodes: string[]
   region: string | null
   category: HeritageCategory
   dateInscribed: number | null
@@ -160,6 +177,36 @@ export type DiscoverySite = {
   isFavorite: boolean
   isReadLater: boolean
   readCount: number
+}
+
+export type HeritageProgressItem = {
+  name: string
+  isoCode?: string
+  total: number
+  read: number
+  percentage: number
+  sites: Array<{ uuid: string; nameEn: string; read: boolean }>
+}
+
+export type HeritageMapProgress = {
+  totalSites: number
+  readSites: number
+  totalCountries: number
+  readCountries: number
+  countries: HeritageProgressItem[]
+  regions: HeritageProgressItem[]
+}
+
+export type HeritageTimelineItem = DiscoverySite & {
+  historicalPeriods: Array<{
+    start: number
+    end: number | null
+    label: string
+    type: string
+    sourceUrl: string
+    approximate: boolean
+    verified: boolean
+  }>
 }
 
 export type DiscoveryFilters = {
@@ -185,10 +232,12 @@ export type DiscoveryFilterOptions = {
 
 export type HeritageTheme = {
   slug: string
+  group: 'subject' | 'category' | 'region' | 'country' | 'status'
   nameJa: string
   nameEn: string
   descriptionJa: string
   count: number
+  mainImageUrl: string | null
 }
 
 export type QuizQuestion = {
@@ -269,4 +318,40 @@ export type WeeklyReport = {
   reviewCount: number
   quizAttempts: number
   quizAccuracy: number | null
+}
+
+export type ChallengeMetric =
+  | 'unique_sites'
+  | 'new_countries'
+  | 'filtered_reads'
+  | 'vocabulary_saved'
+  | 'vocabulary_reviews'
+  | 'quiz_attempts'
+  | 'dictation_attempts'
+  | 'writing_attempts'
+
+export type ChallengeFilters = {
+  country?: string
+  region?: string
+  category?: HeritageCategory | ''
+  theme?: string
+}
+
+export type MonthlyChallengeInput = {
+  name: string
+  month: string
+  metric: ChallengeMetric
+  target: number
+  filters: ChallengeFilters
+  note: string
+}
+
+export type MonthlyChallenge = MonthlyChallengeInput & {
+  id: number
+  progress: number
+  percentage: number
+  completed: boolean
+  status: 'upcoming' | 'active' | 'ended'
+  createdAt: string
+  updatedAt: string
 }

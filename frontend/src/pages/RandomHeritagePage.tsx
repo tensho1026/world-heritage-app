@@ -23,6 +23,8 @@ import { HighlightsPanel } from '../components/HighlightsPanel'
 import { ReadingQuiz } from '../components/ReadingQuiz'
 import { ReadingLevelControls } from '../components/ReadingLevelControls'
 import { ShadowingMode } from '../components/ShadowingMode'
+import { DictationPractice } from '../components/DictationPractice'
+import { WritingChallenge } from '../components/WritingChallenge'
 import {
   SelectableText,
   VocabularyCapture,
@@ -387,7 +389,7 @@ export default function RandomHeritagePage() {
         )}
 
         <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-[clamp(50px,8vw,120px)] py-16 max-[900px]:grid-cols-1">
-          <article>
+          <article id="about-site">
             <p className="text-[0.65rem] font-extrabold tracking-[0.2em] text-[#b85635] uppercase">
               ABOUT THE SITE
             </p>
@@ -408,6 +410,34 @@ export default function RandomHeritagePage() {
               <SpeechControls text={speechText} />
             </div>
             <ShadowingMode text={speechText} />
+            <DictationPractice
+              heritageSiteId={site.uuid}
+              text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
+              onLoadTranslation={async () => {
+                const result = translationQuery.data
+                  ? { data: translationQuery.data }
+                  : await translationQuery.refetch()
+                return (
+                  result.data?.shortDescriptionEn ??
+                  result.data?.descriptionEn ??
+                  undefined
+                )
+              }}
+            />
+            <WritingChallenge
+              heritageSiteId={site.uuid}
+              text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
+              onLoadTranslation={async () => {
+                const result = translationQuery.data
+                  ? { data: translationQuery.data }
+                  : await translationQuery.refetch()
+                return (
+                  result.data?.shortDescriptionEn ??
+                  result.data?.descriptionEn ??
+                  undefined
+                )
+              }}
+            />
             <HighlightCapture
               enabled={highlightMode}
               heritageName={site.nameEn}

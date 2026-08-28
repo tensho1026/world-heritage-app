@@ -6,6 +6,8 @@ const navigation = [
   { to: '/random-heritage', label: '読む' },
   { to: '/explore', label: '探す' },
   { to: '/map', label: '地図' },
+  { to: '/timeline', label: '年代' },
+  { to: '/challenges', label: '目標' },
   { to: '/vocabulary', label: '単語帳' },
   { to: '/memorize', label: '暗記' },
   { to: '/stats', label: '記録' },

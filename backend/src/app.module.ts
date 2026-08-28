@@ -14,6 +14,8 @@ import { HighlightsModule } from './api/highlights/highlights.module';
 import { DiscoveryModule } from './api/discovery/discovery.module';
 import { QuizModule } from './api/quiz/quiz.module';
 import { ReportsModule } from './api/reports/reports.module';
+import { PracticeModule } from './api/practice/practice.module';
+import { ChallengesModule } from './api/challenges/challenges.module';
 
 @Module({
   imports: [
@@ -38,6 +40,8 @@ import { ReportsModule } from './api/reports/reports.module';
     DiscoveryModule,
     QuizModule,
     ReportsModule,
+    PracticeModule,
+    ChallengesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

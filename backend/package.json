@@ -4,9 +4,6 @@
   "description": "World Heritage API built with NestJS, TypeORM, and Neon Postgres.",
   "private": true,
   "license": "UNLICENSED",
-  "engines": {
-    "node": ">=24.11.0"
-  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
@@ -15,9 +12,9 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,scripts,test}/**/*.ts\"",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
-    "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
-    "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage",
     "db:check": "ts-node -r tsconfig-paths/register scripts/check-db.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
@@ -46,12 +43,12 @@
     "@nestjs/core": "^11.1.24",
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.1.24",
-    "@nestjs/typeorm": "^12.0.1",
+    "@nestjs/typeorm": "^11.0.1",
     "dotenv": "^17.2.3",
     "pg": "^8.21.0",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.2",
-    "typeorm": "^1.1.0"
+    "typeorm": "^0.3.30"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

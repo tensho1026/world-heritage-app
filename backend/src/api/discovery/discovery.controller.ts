@@ -20,6 +20,21 @@ export class DiscoveryController {
     return this.discoveryService.getFilters();
   }
 
+  @Get('random')
+  random(@Query() filters: DiscoveryFilters) {
+    return this.discoveryService.getRandom(filters);
+  }
+
+  @Get('progress')
+  progress() {
+    return this.discoveryService.getProgress();
+  }
+
+  @Get('timeline')
+  timeline(@Query() filters: DiscoveryFilters) {
+    return this.discoveryService.getTimeline(filters);
+  }
+
   @Get('themes')
   themes() {
     return this.discoveryService.getThemes();

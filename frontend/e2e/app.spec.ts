@@ -296,6 +296,59 @@ test('searches World Heritage sites with combined filters', async ({
   await expect(page.getByText('Palace and Park of Versailles')).toBeVisible()
 })
 
+test('browses an illustrated theme and opens a random matching site', async ({
+  page,
+}) => {
+  await page.route(/\/api\/discovery\/themes$/, (route) =>
+    route.fulfill({
+      json: [
+        {
+          slug: 'natural-heritage',
+          group: 'category',
+          nameJa: '自然遺産',
+          nameEn: 'Natural Heritage',
+          descriptionJa: '自然を守る世界遺産',
+          count: 12,
+          mainImageUrl: 'https://example.com/natural.jpg',
+        },
+      ],
+    }),
+  )
+  await page.route('**/api/discovery/filters', (route) =>
+    route.fulfill({
+      json: {
+        regions: ['Asia and the Pacific'],
+        countries: [],
+        years: [],
+        categories: ['Cultural', 'Natural', 'Mixed'],
+        comprehensionLevels: ['difficult', 'partial', 'understood'],
+      },
+    }),
+  )
+  await page.route('**/api/discovery/sites**', (route) =>
+    route.fulfill({ json: [{ ...heritage, readCount: 0 }] }),
+  )
+  await page.route('**/api/discovery/random**', (route) =>
+    route.fulfill({ json: { ...heritage, readCount: 0 } }),
+  )
+
+  await page.goto('/themes')
+  await expect(
+    page.getByRole('heading', { name: 'UNESCOの遺産区分から探す' }),
+  ).toBeVisible()
+  await expect(
+    page.locator('img[src="https://example.com/natural.jpg"]'),
+  ).toBeVisible()
+  await page.getByRole('link', { name: /自然遺産/ }).click()
+  await expect(page).toHaveURL(/theme=natural-heritage/)
+  await page.getByLabel('地域').selectOption('Asia and the Pacific')
+  await page.getByLabel('カテゴリー').selectOption('Natural')
+  await page.getByRole('button', { name: 'この条件で探す' }).click()
+  await expect(page).toHaveURL(/region=Asia/)
+  await page.getByRole('button', { name: 'この条件からランダムに読む' }).click()
+  await expect(page).toHaveURL(new RegExp(`/heritage/${heritage.uuid}$`))
+})
+
 test('shows learning calendar and weekly report', async ({ page }) => {
   await mockHomeApi(page)
   await page.route('**/api/reports/calendar**', (route) =>
@@ -337,4 +390,219 @@ test('shows learning calendar and weekly report', async ({ page }) => {
   await expect(page.getByText(/来週までに復習予定の単語は/)).toContainText(
     '4件',
   )
+})
+
+test('shows country and regional reading progress on the map page', async ({
+  page,
+}) => {
+  await page.route('**/api/discovery/filters', (route) =>
+    route.fulfill({
+      json: {
+        regions: [],
+        countries: [],
+        years: [],
+        categories: ['Cultural', 'Natural', 'Mixed'],
+        comprehensionLevels: ['difficult', 'partial', 'understood'],
+      },
+    }),
+  )
+  await page.route('**/api/discovery/map**', (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route('**/api/discovery/progress', (route) =>
+    route.fulfill({
+      json: {
+        totalSites: 100,
+        readSites: 42,
+        totalCountries: 20,
+        readCountries: 8,
+        countries: [
+          {
+            name: 'Japan',
+            isoCode: 'JP',
+            total: 5,
+            read: 2,
+            percentage: 40,
+            sites: [
+              { uuid: heritage.uuid, nameEn: 'Himeji Castle', read: true },
+            ],
+          },
+        ],
+        regions: [
+          {
+            name: 'Asia and the Pacific',
+            total: 30,
+            read: 7,
+            percentage: 23,
+            sites: [],
+          },
+        ],
+      },
+    }),
+  )
+  await page.goto('/map')
+  await expect(page.getByText('42 / 100')).toBeVisible()
+  await expect(page.getByText('Asia and the Pacific')).toBeVisible()
+  await page.getByLabel('国ごとの読了状況').selectOption('JP')
+  await expect(page.getByRole('heading', { name: 'Japan' })).toBeVisible()
+  await expect(page.getByText('Himeji Castle')).toBeVisible()
+})
+
+test('switches between historical and UNESCO timeline entries', async ({
+  page,
+}) => {
+  await page.route('**/api/discovery/filters', (route) =>
+    route.fulfill({
+      json: {
+        regions: [],
+        countries: [],
+        years: [],
+        categories: ['Cultural', 'Natural', 'Mixed'],
+        comprehensionLevels: ['difficult', 'partial', 'understood'],
+      },
+    }),
+  )
+  await page.route('**/api/discovery/timeline**', (route) =>
+    route.fulfill({
+      json: [
+        {
+          ...heritage,
+          readCount: 0,
+          historicalPeriods: [
+            {
+              start: -500,
+              end: -401,
+              label: '5th century BCE',
+              type: 'construction',
+              sourceUrl: 'https://whc.unesco.org/en/list/208',
+              approximate: true,
+              verified: true,
+            },
+            {
+              start: 1200,
+              end: 1250,
+              label: '13th-century reconstruction',
+              type: 'reconstruction',
+              sourceUrl: 'https://whc.unesco.org/en/list/208',
+              approximate: true,
+              verified: true,
+            },
+          ],
+        },
+      ],
+    }),
+  )
+  await page.goto('/timeline')
+  await expect(page.getByText('5th century BCE')).toBeVisible()
+  await expect(page.getByText('13th-century reconstruction')).toBeVisible()
+  await page.getByRole('button', { name: 'UNESCO登録年' }).click()
+  await expect(page.getByText('2003年登録')).toBeVisible()
+})
+
+test('creates a self-defined monthly challenge', async ({ page }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  const created: Array<Record<string, unknown>> = []
+  await page.route('**/api/discovery/filters', (route) =>
+    route.fulfill({
+      json: {
+        regions: ['Asia and the Pacific'],
+        countries: ['Japan'],
+        years: [],
+        categories: ['Cultural', 'Natural', 'Mixed'],
+        comprehensionLevels: ['difficult', 'partial', 'understood'],
+      },
+    }),
+  )
+  await page.route('**/api/discovery/themes', (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route(/\/api\/challenges(?:\?.*)?$/, async (route) => {
+    if (route.request().method() === 'POST') {
+      const body = route.request().postDataJSON()
+      created.push({
+        id: 1,
+        ...body,
+        progress: 0,
+        percentage: 0,
+        completed: false,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      })
+      return route.fulfill({ json: created[0] })
+    }
+    return route.fulfill({ json: created })
+  })
+  await page.goto('/challenges')
+  expect(pageErrors).toEqual([])
+  await expect(page.locator('body')).toContainText('今月の目標を、自分で決める')
+  await page.getByLabel('チャレンジ名').fill('自然遺産を5件読む')
+  await page.getByRole('button', { name: 'チャレンジを作成' }).click()
+  await expect(
+    page.getByRole('heading', { name: '自然遺産を5件読む' }),
+  ).toBeVisible()
+  await expect(page.getByText('達成まであと 5件')).toBeVisible()
+})
+
+test('answers dictation and writing exercises from a heritage article', async ({
+  page,
+}) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', (error) => pageErrors.push(error.message))
+  await page.route('**/api/heritage/random**', (route) =>
+    route.fulfill({ json: heritage }),
+  )
+  await page.route('**/api/heritage/*/views', (route) =>
+    route.fulfill({ json: { id: 1 } }),
+  )
+  await page.route('**/api/heritage/*/learning-state', (route) =>
+    route.fulfill({
+      json: {
+        heritageSiteId: heritage.uuid,
+        comprehensionLevel: null,
+        isFavorite: false,
+        isReadLater: false,
+        readCount: 0,
+      },
+    }),
+  )
+  await page.route('**/api/highlights/site/**', (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route(/\/api\/vocabulary(?:\?.*)?$/, (route) =>
+    route.fulfill({ json: [] }),
+  )
+  await page.route('**/api/translations/article', (route) =>
+    route.fulfill({
+      json: {
+        shortDescriptionEn: 'バーミヤン渓谷には重要な歴史的遺構があります。',
+      },
+    }),
+  )
+  await page.route('**/api/practice/attempts', (route) =>
+    route.fulfill({ json: { id: 1 } }),
+  )
+  await page.goto('/random-heritage')
+  expect(pageErrors).toEqual([])
+  await expect(page.locator('body')).toContainText(heritage.nameEn)
+
+  await page
+    .getByRole('button', { name: /音だけを頼りに一文を書き取る/ })
+    .click()
+  await page
+    .getByLabel('聞こえた英文')
+    .fill('The Bamiyan Valley contains important historic remains.')
+  await page.getByRole('button', { name: '答え合わせ' }).click()
+  await expect(page.getByText('一致率 100%')).toBeVisible()
+
+  await page.getByRole('button', { name: /日本語から英文を組み立てる/ }).click()
+  await expect(page.getByText(/バーミヤン渓谷/)).toBeVisible()
+  await page
+    .getByLabel('あなたの英文')
+    .fill('The Bamiyan Valley contains important historic remains.')
+  await page.getByRole('button', { name: '原文と比較' }).click()
+  await expect(
+    page.getByText('原文だけが唯一の正解表現ではありません。'),
+  ).toBeVisible()
 })

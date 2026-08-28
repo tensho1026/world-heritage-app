@@ -9,6 +9,8 @@ import CollectionPage from './pages/CollectionPage'
 import StatsPage from './pages/StatsPage'
 import ExplorePage from './pages/ExplorePage'
 import ThemesPage from './pages/ThemesPage'
+import TimelinePage from './pages/TimelinePage'
+import ChallengesPage from './pages/ChallengesPage'
 
 const MapPage = lazy(() => import('./pages/MapPage'))
 
@@ -23,6 +25,8 @@ function App() {
       <Route path="/stats" element={<StatsPage />} />
       <Route path="/explore" element={<ExplorePage />} />
       <Route path="/themes" element={<ThemesPage />} />
+      <Route path="/timeline" element={<TimelinePage />} />
+      <Route path="/challenges" element={<ChallengesPage />} />
       <Route
         path="/map"
         element={

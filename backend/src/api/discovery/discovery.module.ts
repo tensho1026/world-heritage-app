@@ -16,5 +16,6 @@ import { DiscoveryService } from './discovery.service';
   ],
   controllers: [DiscoveryController],
   providers: [DiscoveryService],
+  exports: [DiscoveryService],
 })
 export class DiscoveryModule {}

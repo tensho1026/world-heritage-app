@@ -90,6 +90,12 @@ export default function HomePage() {
             <Link className="underline" to="/themes">
               テーマから探す
             </Link>
+            <Link className="underline" to="/timeline">
+              年代から探す
+            </Link>
+            <Link className="underline" to="/challenges">
+              月間目標
+            </Link>
             <Link className="underline" to="/favorites">
               お気に入り
             </Link>

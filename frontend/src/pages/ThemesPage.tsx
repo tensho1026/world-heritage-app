@@ -4,6 +4,14 @@ import { getThemes } from '../api/discovery'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
 
+const groupLabels = {
+  subject: '題材から探す',
+  category: 'UNESCOの遺産区分から探す',
+  region: '地域から探す',
+  country: '国から探す',
+  status: '登録状態から探す',
+} as const
+
 export default function ThemesPage() {
   const themes = useQuery({ queryKey: ['themes'], queryFn: getThemes })
   return (
@@ -25,31 +33,56 @@ export default function ThemesPage() {
             onRetry={() => themes.refetch()}
           />
         )}
-        {themes.data && (
-          <div className="mt-10 grid grid-cols-3 gap-5 max-[800px]:grid-cols-2 max-[520px]:grid-cols-1">
-            {themes.data.map((theme, index) => (
-              <Link
-                className="group min-h-56 border border-[#18352f]/15 bg-white/45 p-6 shadow-[7px_7px_0_rgb(201_140_71_/_13%)] transition-transform hover:-translate-y-1"
-                key={theme.slug}
-                to={`/explore?theme=${encodeURIComponent(theme.slug)}`}
-              >
-                <span className="font-serif text-5xl text-[#c98c47]/35">
-                  {String(index + 1).padStart(2, '0')}
-                </span>
-                <h2 className="mt-5 font-serif text-2xl">{theme.nameJa}</h2>
-                <p className="mt-1 text-xs font-bold tracking-[0.08em] text-[#b85635]">
-                  {theme.nameEn}
-                </p>
-                <p className="mt-4 text-xs leading-6 text-[#18352f]/55">
-                  {theme.descriptionJa}
-                </p>
-                <span className="mt-5 block text-xs font-bold">
-                  {theme.count}件を見る →
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
+        {themes.data &&
+          Object.entries(groupLabels).map(([group, label]) => {
+            const grouped = themes.data.filter((theme) => theme.group === group)
+            if (!grouped.length) return null
+            return (
+              <section className="mt-12" key={group}>
+                <div className="flex items-end justify-between gap-4 border-b border-[#18352f]/15 pb-3">
+                  <h2 className="font-serif text-2xl">{label}</h2>
+                  <span className="text-[0.62rem] font-bold text-[#18352f]/45">
+                    {group === 'category' ? 'UNESCO公式区分' : 'アプリ内分類'}
+                  </span>
+                </div>
+                <div className="mt-5 grid grid-cols-3 gap-5 max-[800px]:grid-cols-2 max-[520px]:grid-cols-1">
+                  {grouped.map((theme, index) => (
+                    <Link
+                      className="group overflow-hidden border border-[#18352f]/15 bg-white/45 shadow-[7px_7px_0_rgb(201_140_71_/_13%)] transition-transform hover:-translate-y-1"
+                      key={theme.slug}
+                      to={`/explore?theme=${encodeURIComponent(theme.slug)}`}
+                    >
+                      <div className="relative h-32 bg-[#d9d0bd]">
+                        {theme.mainImageUrl && (
+                          <img
+                            alt=""
+                            className="size-full object-cover opacity-80 transition-transform group-hover:scale-105"
+                            loading="lazy"
+                            src={theme.mainImageUrl}
+                          />
+                        )}
+                        <span className="absolute bottom-2 left-3 font-serif text-4xl text-white drop-shadow">
+                          {String(index + 1).padStart(2, '0')}
+                        </span>
+                      </div>
+                      <div className="p-6">
+                        <h3 className="font-serif text-2xl">{theme.nameJa}</h3>
+                        <p className="mt-1 text-xs font-bold tracking-[0.08em] text-[#b85635]">
+                          {theme.nameEn}
+                        </p>
+                        <p className="mt-4 text-xs leading-6 text-[#18352f]/55">
+                          {theme.descriptionJa}
+                        </p>
+                        <span className="mt-5 block text-xs font-bold">
+                          {theme.count}件を見る →
+                        </span>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            )
+          })}
       </section>
     </AppShell>
   )

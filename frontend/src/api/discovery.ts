@@ -2,6 +2,8 @@ import type {
   DiscoveryFilterOptions,
   DiscoveryFilters,
   DiscoverySite,
+  HeritageMapProgress,
+  HeritageTimelineItem,
   HeritageTheme,
 } from '../types'
 import { apiClient } from './client'
@@ -36,5 +38,28 @@ export async function getDiscoveryFilters() {
 
 export async function getThemes() {
   const { data } = await apiClient.get<HeritageTheme[]>('/discovery/themes')
+  return data
+}
+
+export async function getRandomDiscoverySite(filters: DiscoveryFilters) {
+  const { data } = await apiClient.get<DiscoverySite | null>(
+    '/discovery/random',
+    { params: params(filters) },
+  )
+  return data
+}
+
+export async function getMapProgress() {
+  const { data } = await apiClient.get<HeritageMapProgress>(
+    '/discovery/progress',
+  )
+  return data
+}
+
+export async function getTimeline(filters: DiscoveryFilters) {
+  const { data } = await apiClient.get<HeritageTimelineItem[]>(
+    '/discovery/timeline',
+    { params: params(filters) },
+  )
   return data
 }

@@ -118,7 +118,7 @@ export class DiscoveryService {
     const sites = await query
       .orderBy('site.isFeatured', 'DESC')
       .addOrderBy('site.nameEn', 'ASC')
-      .take(mapOnly ? 2_000 : 500)
+      .take(2_000)
       .getMany();
     return this.attachLearning(sites);
   }
@@ -153,11 +153,124 @@ export class DiscoveryService {
   async getThemes() {
     return Promise.all(
       heritageThemes.map(async (theme) => {
-        const query = this.heritageRepository.createQueryBuilder('site');
-        this.applyTheme(query, theme);
-        return { ...theme, count: await query.getCount() };
+        const countQuery = this.heritageRepository.createQueryBuilder('site');
+        const imageQuery = this.heritageRepository.createQueryBuilder('site');
+        this.applyTheme(countQuery, theme);
+        this.applyTheme(imageQuery, theme);
+        const [count, representative] = await Promise.all([
+          countQuery.getCount(),
+          imageQuery
+            .andWhere(
+              '(site.mainImageUrl IS NOT NULL OR site.wikipediaImageUrl IS NOT NULL)',
+            )
+            .orderBy('site.isFeatured', 'DESC')
+            .addOrderBy('site.nameEn', 'ASC')
+            .getOne(),
+        ]);
+        return {
+          ...theme,
+          count,
+          mainImageUrl:
+            representative?.mainImageUrl ??
+            representative?.wikipediaImageUrl ??
+            null,
+        };
       }),
     );
+  }
+
+  async getRandom(filters: DiscoveryFilters) {
+    const sites = await this.search(filters);
+    if (!sites.length) return null;
+    return sites[Math.floor(Math.random() * sites.length)];
+  }
+
+  async getProgress() {
+    const [sites, readRows] = await Promise.all([
+      this.heritageRepository.find({ order: { nameEn: 'ASC' } }),
+      this.readRepository
+        .createQueryBuilder('reading')
+        .select('DISTINCT reading.heritageSiteId', 'heritageSiteId')
+        .getRawMany<{ heritageSiteId: string }>(),
+    ]);
+    const readIds = new Set(readRows.map((row) => row.heritageSiteId));
+    type ProgressBucket = {
+      name: string;
+      isoCode?: string;
+      siteIds: Set<string>;
+      readIds: Set<string>;
+      sites: Array<{ uuid: string; nameEn: string; read: boolean }>;
+    };
+    const countries = new Map<string, ProgressBucket>();
+    const regions = new Map<string, ProgressBucket>();
+
+    for (const site of sites) {
+      const read = readIds.has(site.uuid);
+      site.statesNames.forEach((name, index) => {
+        const isoCode = site.isoCodes[index]?.toUpperCase();
+        const key = isoCode || name;
+        const bucket = countries.get(key) ?? {
+          name,
+          isoCode,
+          siteIds: new Set<string>(),
+          readIds: new Set<string>(),
+          sites: [],
+        };
+        if (!bucket.siteIds.has(site.uuid)) {
+          bucket.siteIds.add(site.uuid);
+          bucket.sites.push({ uuid: site.uuid, nameEn: site.nameEn, read });
+        }
+        if (read) bucket.readIds.add(site.uuid);
+        countries.set(key, bucket);
+      });
+      const regionName = site.region ?? 'Unknown';
+      const region = regions.get(regionName) ?? {
+        name: regionName,
+        siteIds: new Set<string>(),
+        readIds: new Set<string>(),
+        sites: [],
+      };
+      if (!region.siteIds.has(site.uuid)) {
+        region.siteIds.add(site.uuid);
+        region.sites.push({ uuid: site.uuid, nameEn: site.nameEn, read });
+      }
+      if (read) region.readIds.add(site.uuid);
+      regions.set(regionName, region);
+    }
+
+    const serialize = (bucket: ProgressBucket) => ({
+      name: bucket.name,
+      ...(bucket.isoCode ? { isoCode: bucket.isoCode } : {}),
+      total: bucket.siteIds.size,
+      read: bucket.readIds.size,
+      percentage: bucket.siteIds.size
+        ? Math.round((bucket.readIds.size / bucket.siteIds.size) * 100)
+        : 0,
+      sites: bucket.sites,
+    });
+    return {
+      totalSites: sites.length,
+      readSites: readIds.size,
+      totalCountries: countries.size,
+      readCountries: [...countries.values()].filter(
+        (country) => country.readIds.size > 0,
+      ).length,
+      countries: [...countries.values()].map(serialize),
+      regions: [...regions.values()].map(serialize),
+    };
+  }
+
+  async getTimeline(filters: DiscoveryFilters) {
+    const summaries = await this.search(filters);
+    if (!summaries.length) return [];
+    const sites = await this.heritageRepository.findBy({
+      uuid: In(summaries.map((site) => site.uuid)),
+    });
+    const siteMap = new Map(sites.map((site) => [site.uuid, site]));
+    return summaries.map((summary) => ({
+      ...summary,
+      historicalPeriods: this.historicalPeriods(siteMap.get(summary.uuid)!),
+    }));
   }
 
   private applyTheme(
@@ -189,6 +302,85 @@ export class DiscoveryService {
         themeCategory: theme.category,
       });
     }
+    if (theme.region) {
+      query.andWhere('site.region = :themeRegion', {
+        themeRegion: theme.region,
+      });
+    }
+    if (theme.danger) {
+      query.andWhere('site.danger = true');
+    }
+    if (theme.transboundary) {
+      query.andWhere('site.transboundary = true');
+    }
+  }
+
+  private historicalPeriods(site: WorldHeritageSite) {
+    if (site.historicalPeriods?.length) return site.historicalPeriods;
+    if (site.historicalPeriodStart != null) {
+      return [
+        {
+          start: site.historicalPeriodStart,
+          end: site.historicalPeriodEnd,
+          label:
+            site.historicalPeriodLabel ??
+            this.formatHistoricalYear(site.historicalPeriodStart),
+          type: site.historicalPeriodType ?? '成立',
+          sourceUrl:
+            site.historicalPeriodSourceUrl ??
+            `https://whc.unesco.org/en/list/${site.unescoId}`,
+          approximate: site.historicalPeriodApproximate,
+          verified: site.historicalPeriodVerified,
+        },
+      ];
+    }
+    const text = [
+      site.shortDescriptionEn,
+      site.descriptionEn,
+      site.justificationEn,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const century = text.match(
+      /\b(\d{1,2})(?:st|nd|rd|th) century(?:\s+(BC|BCE|AD|CE))?/i,
+    );
+    if (century) {
+      const number = Number(century[1]);
+      const beforeCommonEra = /BC|BCE/i.test(century[2] ?? '');
+      const start = beforeCommonEra ? -number * 100 : (number - 1) * 100 + 1;
+      return [
+        {
+          start,
+          end: beforeCommonEra ? start + 99 : number * 100,
+          label: century[0],
+          type: '本文に記載された年代',
+          sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
+          approximate: true,
+          verified: false,
+        },
+      ];
+    }
+    const datedEvent = text.match(
+      /\b(?:built|founded|established|constructed|created|developed|dates? back to|dating from)[^.!?]{0,45}?\b(\d{3,4})\b/i,
+    );
+    if (datedEvent) {
+      return [
+        {
+          start: Number(datedEvent[1]),
+          end: null,
+          label: datedEvent[0],
+          type: '本文に記載された年代',
+          sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
+          approximate: true,
+          verified: false,
+        },
+      ];
+    }
+    return [];
+  }
+
+  private formatHistoricalYear(year: number) {
+    return year < 0 ? `${Math.abs(year)} BCE` : String(year);
   }
 
   private async attachLearning(sites: WorldHeritageSite[]) {
@@ -215,6 +407,7 @@ export class DiscoveryService {
       nameEn: site.nameEn,
       shortDescriptionEn: site.shortDescriptionEn,
       statesNames: site.statesNames,
+      isoCodes: site.isoCodes,
       region: site.region,
       category: site.category,
       dateInscribed: site.dateInscribed,
