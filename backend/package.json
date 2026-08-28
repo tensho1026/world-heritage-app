@@ -4,6 +4,9 @@
   "description": "World Heritage API built with NestJS, TypeORM, and Neon Postgres.",
   "private": true,
   "license": "UNLICENSED",
+  "engines": {
+    "node": ">=24.11.0"
+  },
   "scripts": {
     "build": "nest build",
     "format": "prettier --write --no-error-on-unmatched-pattern \"src/**/*.ts\" \"scripts/**/*.ts\" \"test/**/*.ts\"",
@@ -12,9 +15,9 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,scripts,test}/**/*.ts\"",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch",
+    "test:cov": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --coverage",
     "db:check": "ts-node -r tsconfig-paths/register scripts/check-db.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
