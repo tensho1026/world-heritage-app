@@ -7,6 +7,7 @@ import { AddVocabularyLearningStates1760000002000 } from './migrations/176000000
 import { AddWikipediaAttribution1760000003000 } from './migrations/1760000003000-AddWikipediaAttribution';
 import { AddAdvancedLearningFeatures1760000004000 } from './migrations/1760000004000-AddAdvancedLearningFeatures';
 import { AddHistoricalPeriods1760000005000 } from './migrations/1760000005000-AddHistoricalPeriods';
+import { AddPracticeAttempts1760000006000 } from './migrations/1760000006000-AddPracticeAttempts';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -23,5 +24,6 @@ export default new DataSource({
     AddWikipediaAttribution1760000003000,
     AddAdvancedLearningFeatures1760000004000,
     AddHistoricalPeriods1760000005000,
+    AddPracticeAttempts1760000006000,
   ],
 });

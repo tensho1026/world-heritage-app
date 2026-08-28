@@ -11,6 +11,7 @@ import { ArticleHighlight } from './entities/article-highlight.entity';
 import { VocabularyReview } from './entities/vocabulary-review.entity';
 import { QuizAttempt } from './entities/quiz-attempt.entity';
 import { ComprehensionHistory } from './entities/comprehension-history.entity';
+import { LearningExerciseAttempt } from './entities/learning-exercise-attempt.entity';
 
 export const databaseEntities = [
   WorldHeritageSite,
@@ -24,6 +25,7 @@ export const databaseEntities = [
   VocabularyReview,
   QuizAttempt,
   ComprehensionHistory,
+  LearningExerciseAttempt,
 ];
 
 type SharedPostgresOptions = {
