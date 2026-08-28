@@ -24,6 +24,7 @@ import { ReadingQuiz } from '../components/ReadingQuiz'
 import { ReadingLevelControls } from '../components/ReadingLevelControls'
 import { ShadowingMode } from '../components/ShadowingMode'
 import { DictationPractice } from '../components/DictationPractice'
+import { WritingChallenge } from '../components/WritingChallenge'
 import {
   SelectableText,
   VocabularyCapture,
@@ -410,6 +411,20 @@ export default function RandomHeritagePage() {
             </div>
             <ShadowingMode text={speechText} />
             <DictationPractice
+              heritageSiteId={site.uuid}
+              text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
+              onLoadTranslation={async () => {
+                const result = translationQuery.data
+                  ? { data: translationQuery.data }
+                  : await translationQuery.refetch()
+                return (
+                  result.data?.shortDescriptionEn ??
+                  result.data?.descriptionEn ??
+                  undefined
+                )
+              }}
+            />
+            <WritingChallenge
               heritageSiteId={site.uuid}
               text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
               onLoadTranslation={async () => {
