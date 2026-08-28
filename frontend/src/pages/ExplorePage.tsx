@@ -1,7 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
-import { getDiscoveryFilters, searchHeritage } from '../api/discovery'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import {
+  getDiscoveryFilters,
+  getRandomDiscoverySite,
+  searchHeritage,
+} from '../api/discovery'
 import { AppShell } from '../components/AppShell'
 import { DiscoveryCard } from '../components/DiscoveryCard'
 import { DiscoveryFiltersPanel } from '../components/DiscoveryFiltersPanel'
@@ -9,10 +13,24 @@ import { PageError, PageLoading } from '../components/AsyncState'
 import type { DiscoveryFilters } from '../types'
 
 export default function ExplorePage() {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const initial: DiscoveryFilters = {
     theme: searchParams.get('theme') ?? '',
     q: searchParams.get('q') ?? '',
+    country: searchParams.get('country') ?? '',
+    region: searchParams.get('region') ?? '',
+    category:
+      (searchParams.get('category') as DiscoveryFilters['category']) ?? '',
+    year: searchParams.get('year') ?? '',
+    readStatus:
+      (searchParams.get('readStatus') as DiscoveryFilters['readStatus']) ?? '',
+    comprehension:
+      (searchParams.get(
+        'comprehension',
+      ) as DiscoveryFilters['comprehension']) ?? '',
+    featured: searchParams.get('featured') === 'true',
+    favorite: searchParams.get('favorite') === 'true',
   }
   const [draft, setDraft] = useState<DiscoveryFilters>(initial)
   const [applied, setApplied] = useState<DiscoveryFilters>(initial)
@@ -24,6 +42,17 @@ export default function ExplorePage() {
     queryKey: ['discovery-sites', applied],
     queryFn: () => searchHeritage(applied),
   })
+  const [randomPending, setRandomPending] = useState(false)
+
+  async function openRandomResult() {
+    setRandomPending(true)
+    try {
+      const site = await getRandomDiscoverySite(applied)
+      if (site) navigate(`/heritage/${site.uuid}`)
+    } finally {
+      setRandomPending(false)
+    }
+  }
 
   function apply() {
     setApplied(draft)
@@ -88,9 +117,14 @@ export default function ExplorePage() {
           <>
             <div className="mt-8 flex items-center justify-between">
               <h2 className="font-serif text-2xl">{sites.data.length}件</h2>
-              <span className="text-xs text-[#18352f]/45">
-                最大500件まで表示
-              </span>
+              <button
+                className="border border-[#b85635] px-4 py-2 text-xs font-bold text-[#b85635] disabled:opacity-50"
+                disabled={!sites.data.length || randomPending}
+                onClick={() => void openRandomResult()}
+                type="button"
+              >
+                {randomPending ? '選んでいます…' : 'この条件からランダムに読む'}
+              </button>
             </div>
             {sites.data.length ? (
               <div className="mt-5 grid grid-cols-2 gap-5 max-[800px]:grid-cols-1">

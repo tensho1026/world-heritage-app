@@ -185,6 +185,7 @@ export type DiscoveryFilterOptions = {
 
 export type HeritageTheme = {
   slug: string
+  group: 'subject' | 'category' | 'region' | 'country' | 'status'
   nameJa: string
   nameEn: string
   descriptionJa: string

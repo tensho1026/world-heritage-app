@@ -38,3 +38,11 @@ export async function getThemes() {
   const { data } = await apiClient.get<HeritageTheme[]>('/discovery/themes')
   return data
 }
+
+export async function getRandomDiscoverySite(filters: DiscoveryFilters) {
+  const { data } = await apiClient.get<DiscoverySite | null>(
+    '/discovery/random',
+    { params: params(filters) },
+  )
+  return data
+}

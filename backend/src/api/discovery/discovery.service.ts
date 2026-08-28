@@ -160,6 +160,12 @@ export class DiscoveryService {
     );
   }
 
+  async getRandom(filters: DiscoveryFilters) {
+    const sites = await this.search(filters);
+    if (!sites.length) return null;
+    return sites[Math.floor(Math.random() * sites.length)];
+  }
+
   private applyTheme(
     query: ReturnType<Repository<WorldHeritageSite>['createQueryBuilder']>,
     theme: ThemeDefinition,
@@ -188,6 +194,17 @@ export class DiscoveryService {
       query.andWhere('site.category = :themeCategory', {
         themeCategory: theme.category,
       });
+    }
+    if (theme.region) {
+      query.andWhere('site.region = :themeRegion', {
+        themeRegion: theme.region,
+      });
+    }
+    if (theme.danger) {
+      query.andWhere('site.danger = true');
+    }
+    if (theme.transboundary) {
+      query.andWhere('site.transboundary = true');
     }
   }
 
