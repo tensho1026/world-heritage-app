@@ -10,6 +10,13 @@ export type WorldHeritageSite = {
   descriptionEn: string | null
   justificationEn: string | null
   dateInscribed: number | null
+  historicalPeriodStart?: number | null
+  historicalPeriodEnd?: number | null
+  historicalPeriodLabel?: string | null
+  historicalPeriodType?: string | null
+  historicalPeriodSourceUrl?: string | null
+  historicalPeriodApproximate?: boolean
+  historicalPeriodVerified?: boolean
   danger: boolean
   dangerList: string | null
   areaHectares: number | null
@@ -179,6 +186,18 @@ export type HeritageMapProgress = {
   readCountries: number
   countries: HeritageProgressItem[]
   regions: HeritageProgressItem[]
+}
+
+export type HeritageTimelineItem = DiscoverySite & {
+  historicalPeriod: {
+    start: number
+    end: number | null
+    label: string
+    type: string
+    sourceUrl: string
+    approximate: boolean
+    verified: boolean
+  } | null
 }
 
 export type DiscoveryFilters = {

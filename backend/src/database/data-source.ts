@@ -6,6 +6,7 @@ import { SeedFeaturedSites1760000001000 } from './migrations/1760000001000-SeedF
 import { AddVocabularyLearningStates1760000002000 } from './migrations/1760000002000-AddVocabularyLearningStates';
 import { AddWikipediaAttribution1760000003000 } from './migrations/1760000003000-AddWikipediaAttribution';
 import { AddAdvancedLearningFeatures1760000004000 } from './migrations/1760000004000-AddAdvancedLearningFeatures';
+import { AddHistoricalPeriods1760000005000 } from './migrations/1760000005000-AddHistoricalPeriods';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -21,5 +22,6 @@ export default new DataSource({
     AddVocabularyLearningStates1760000002000,
     AddWikipediaAttribution1760000003000,
     AddAdvancedLearningFeatures1760000004000,
+    AddHistoricalPeriods1760000005000,
   ],
 });

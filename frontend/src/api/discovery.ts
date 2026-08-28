@@ -3,6 +3,7 @@ import type {
   DiscoveryFilters,
   DiscoverySite,
   HeritageMapProgress,
+  HeritageTimelineItem,
   HeritageTheme,
 } from '../types'
 import { apiClient } from './client'
@@ -51,6 +52,14 @@ export async function getRandomDiscoverySite(filters: DiscoveryFilters) {
 export async function getMapProgress() {
   const { data } = await apiClient.get<HeritageMapProgress>(
     '/discovery/progress',
+  )
+  return data
+}
+
+export async function getTimeline(filters: DiscoveryFilters) {
+  const { data } = await apiClient.get<HeritageTimelineItem[]>(
+    '/discovery/timeline',
+    { params: params(filters) },
   )
   return data
 }

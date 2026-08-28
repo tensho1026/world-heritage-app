@@ -30,6 +30,11 @@ export class DiscoveryController {
     return this.discoveryService.getProgress();
   }
 
+  @Get('timeline')
+  timeline(@Query() filters: DiscoveryFilters) {
+    return this.discoveryService.getTimeline(filters);
+  }
+
   @Get('themes')
   themes() {
     return this.discoveryService.getThemes();

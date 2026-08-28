@@ -65,6 +65,27 @@ export class WorldHeritageSite {
   @Column({ type: 'smallint', nullable: true })
   dateEnd: number | null;
 
+  @Column({ type: 'int', nullable: true })
+  historicalPeriodStart: number | null;
+
+  @Column({ type: 'int', nullable: true })
+  historicalPeriodEnd: number | null;
+
+  @Column({ type: 'text', nullable: true })
+  historicalPeriodLabel: string | null;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  historicalPeriodType: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  historicalPeriodSourceUrl: string | null;
+
+  @Column({ type: 'boolean', default: false })
+  historicalPeriodApproximate: boolean;
+
+  @Column({ type: 'boolean', default: false })
+  historicalPeriodVerified: boolean;
+
   @Index()
   @Column({ type: 'boolean', default: false })
   danger: boolean;

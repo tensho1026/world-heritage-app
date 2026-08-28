@@ -118,7 +118,7 @@ export class DiscoveryService {
     const sites = await query
       .orderBy('site.isFeatured', 'DESC')
       .addOrderBy('site.nameEn', 'ASC')
-      .take(mapOnly ? 2_000 : 500)
+      .take(2_000)
       .getMany();
     return this.attachLearning(sites);
   }
@@ -241,6 +241,19 @@ export class DiscoveryService {
     };
   }
 
+  async getTimeline(filters: DiscoveryFilters) {
+    const summaries = await this.search(filters);
+    if (!summaries.length) return [];
+    const sites = await this.heritageRepository.findBy({
+      uuid: In(summaries.map((site) => site.uuid)),
+    });
+    const siteMap = new Map(sites.map((site) => [site.uuid, site]));
+    return summaries.map((summary) => ({
+      ...summary,
+      historicalPeriod: this.historicalPeriod(siteMap.get(summary.uuid)!),
+    }));
+  }
+
   private applyTheme(
     query: ReturnType<Repository<WorldHeritageSite>['createQueryBuilder']>,
     theme: ThemeDefinition,
@@ -281,6 +294,67 @@ export class DiscoveryService {
     if (theme.transboundary) {
       query.andWhere('site.transboundary = true');
     }
+  }
+
+  private historicalPeriod(site: WorldHeritageSite) {
+    if (site.historicalPeriodStart != null) {
+      return {
+        start: site.historicalPeriodStart,
+        end: site.historicalPeriodEnd,
+        label:
+          site.historicalPeriodLabel ??
+          this.formatHistoricalYear(site.historicalPeriodStart),
+        type: site.historicalPeriodType ?? '成立',
+        sourceUrl:
+          site.historicalPeriodSourceUrl ??
+          `https://whc.unesco.org/en/list/${site.unescoId}`,
+        approximate: site.historicalPeriodApproximate,
+        verified: site.historicalPeriodVerified,
+      };
+    }
+    const text = [
+      site.shortDescriptionEn,
+      site.descriptionEn,
+      site.justificationEn,
+    ]
+      .filter(Boolean)
+      .join(' ');
+    const century = text.match(
+      /\b(\d{1,2})(?:st|nd|rd|th) century(?:\s+(BC|BCE|AD|CE))?/i,
+    );
+    if (century) {
+      const number = Number(century[1]);
+      const beforeCommonEra = /BC|BCE/i.test(century[2] ?? '');
+      const start = beforeCommonEra ? -number * 100 : (number - 1) * 100;
+      return {
+        start,
+        end: start + 99,
+        label: century[0],
+        type: '本文に記載された年代',
+        sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
+        approximate: true,
+        verified: false,
+      };
+    }
+    const datedEvent = text.match(
+      /\b(?:built|founded|established|constructed|created|developed|dates? back to|dating from)[^.!?]{0,45}?\b(\d{3,4})\b/i,
+    );
+    if (datedEvent) {
+      return {
+        start: Number(datedEvent[1]),
+        end: null,
+        label: datedEvent[0],
+        type: '本文に記載された年代',
+        sourceUrl: `https://whc.unesco.org/en/list/${site.unescoId}`,
+        approximate: true,
+        verified: false,
+      };
+    }
+    return null;
+  }
+
+  private formatHistoricalYear(year: number) {
+    return year < 0 ? `${Math.abs(year)} BCE` : String(year);
   }
 
   private async attachLearning(sites: WorldHeritageSite[]) {
