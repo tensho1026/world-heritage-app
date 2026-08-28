@@ -4,6 +4,8 @@ node_modules
 # build output
 dist
 coverage
+playwright-report
+test-results
 *.tsbuildinfo
 
 # logs
@@ -21,3 +23,5 @@ pnpm-debug.log*
 .DS_Store
 .idea
 .vscode
+
+requests.http

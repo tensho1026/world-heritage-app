@@ -1,11 +1,35 @@
-import { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import { DataSourceOptions } from 'typeorm';
-import { WorldHeritageSite } from '../world-heritage-site.entity';
+import { WorldHeritageSite } from './entities/world-heritage-site.entity';
+import { TypeOrmModuleOptions } from '@nestjs/typeorm';
+import { HeritageView } from './entities/heritage-view.entity';
+import { HeritageRead } from './entities/heritage-read.entity';
+import { HeritageLearningState } from './entities/heritage-learning-state.entity';
+import { SavedVocabulary } from './entities/saved-vocabulary.entity';
+import { VocabularySource } from './entities/vocabulary-source.entity';
+import { TranslationCache } from './entities/translation-cache.entity';
+import { ArticleHighlight } from './entities/article-highlight.entity';
+import { VocabularyReview } from './entities/vocabulary-review.entity';
+import { QuizAttempt } from './entities/quiz-attempt.entity';
+import { ComprehensionHistory } from './entities/comprehension-history.entity';
+
+export const databaseEntities = [
+  WorldHeritageSite,
+  HeritageView,
+  HeritageRead,
+  HeritageLearningState,
+  SavedVocabulary,
+  VocabularySource,
+  TranslationCache,
+  ArticleHighlight,
+  VocabularyReview,
+  QuizAttempt,
+  ComprehensionHistory,
+];
 
 type SharedPostgresOptions = {
   type: 'postgres';
   url: string;
-  entities: [typeof WorldHeritageSite];
+  entities: typeof databaseEntities;
   synchronize: boolean;
   ssl: true;
   extra?: {
@@ -22,7 +46,7 @@ function createSharedPostgresOptions(
   return {
     type: 'postgres',
     url: databaseUrl,
-    entities: [WorldHeritageSite],
+    entities: databaseEntities,
     synchronize,
     ssl: true,
     extra: enableChannelBinding ? { enableChannelBinding: true } : undefined,
@@ -43,5 +67,8 @@ export function createDataSourceOptions(
   databaseUrl: string,
   synchronize: boolean,
 ): DataSourceOptions {
-  return createSharedPostgresOptions(databaseUrl, synchronize) as DataSourceOptions;
+  return createSharedPostgresOptions(
+    databaseUrl,
+    synchronize,
+  ) as DataSourceOptions;
 }
