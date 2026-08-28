@@ -6,6 +6,7 @@ import {
   WorldHeritageSite,
 } from '../../../database/entities/world-heritage-site.entity';
 import { Repository } from 'typeorm';
+import { featuredUnescoIdSet } from '../../../database/featured-unesco-ids';
 
 type UnescoRecord = Record<string, unknown> & {
   uuid: string;
@@ -96,12 +97,15 @@ export class HeritageImportService {
       mainImageAuthor: this.asNullableString(record.main_image_author),
       mainImageCopyright: this.asNullableString(record.main_image_copyright),
       mainImageCaptionEn: this.asNullableString(record.main_image_caption_en),
+      mainImageSourceUrl: null,
+      mainImageLicense: null,
       imageUrls: this.asStringArray(record.images_urls),
       mainVideoUrl: this.asNullableString(record.main_video_url),
       mainVideoAuthor: this.asNullableString(record.main_video_author),
       mainVideoCaptionEn: this.asNullableString(record.main_video_caption_en),
       videoUrls: this.asStringArray(record.videos_urls),
       componentsCount: this.asNullableNumber(record.components_count) ?? 0,
+      isFeatured: featuredUnescoIdSet.has(record.id_no),
     };
   }
 
