@@ -54,6 +54,17 @@ curl -X POST http://localhost:3000/heritage-import
 
 ## 開発サーバー
 
+リポジトリのルートから、フロントエンドとバックエンドを同時に起動できます。
+
+```bash
+npm run dev
+```
+
+フロントエンドは `http://localhost:5173`、バックエンドは
+`http://localhost:3000` で起動します。終了するときは `Ctrl+C` を押してください。
+
+個別に起動する場合は次のコマンドを使用します。
+
 ```bash
 # frontend
 cd frontend
