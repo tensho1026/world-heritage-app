@@ -166,6 +166,81 @@ export class DiscoveryService {
     return sites[Math.floor(Math.random() * sites.length)];
   }
 
+  async getProgress() {
+    const [sites, readRows] = await Promise.all([
+      this.heritageRepository.find({ order: { nameEn: 'ASC' } }),
+      this.readRepository
+        .createQueryBuilder('reading')
+        .select('DISTINCT reading.heritageSiteId', 'heritageSiteId')
+        .getRawMany<{ heritageSiteId: string }>(),
+    ]);
+    const readIds = new Set(readRows.map((row) => row.heritageSiteId));
+    type ProgressBucket = {
+      name: string;
+      isoCode?: string;
+      siteIds: Set<string>;
+      readIds: Set<string>;
+      sites: Array<{ uuid: string; nameEn: string; read: boolean }>;
+    };
+    const countries = new Map<string, ProgressBucket>();
+    const regions = new Map<string, ProgressBucket>();
+
+    for (const site of sites) {
+      const read = readIds.has(site.uuid);
+      site.statesNames.forEach((name, index) => {
+        const isoCode = site.isoCodes[index]?.toUpperCase();
+        const key = isoCode || name;
+        const bucket = countries.get(key) ?? {
+          name,
+          isoCode,
+          siteIds: new Set<string>(),
+          readIds: new Set<string>(),
+          sites: [],
+        };
+        if (!bucket.siteIds.has(site.uuid)) {
+          bucket.siteIds.add(site.uuid);
+          bucket.sites.push({ uuid: site.uuid, nameEn: site.nameEn, read });
+        }
+        if (read) bucket.readIds.add(site.uuid);
+        countries.set(key, bucket);
+      });
+      const regionName = site.region ?? 'Unknown';
+      const region = regions.get(regionName) ?? {
+        name: regionName,
+        siteIds: new Set<string>(),
+        readIds: new Set<string>(),
+        sites: [],
+      };
+      if (!region.siteIds.has(site.uuid)) {
+        region.siteIds.add(site.uuid);
+        region.sites.push({ uuid: site.uuid, nameEn: site.nameEn, read });
+      }
+      if (read) region.readIds.add(site.uuid);
+      regions.set(regionName, region);
+    }
+
+    const serialize = (bucket: ProgressBucket) => ({
+      name: bucket.name,
+      ...(bucket.isoCode ? { isoCode: bucket.isoCode } : {}),
+      total: bucket.siteIds.size,
+      read: bucket.readIds.size,
+      percentage: bucket.siteIds.size
+        ? Math.round((bucket.readIds.size / bucket.siteIds.size) * 100)
+        : 0,
+      sites: bucket.sites,
+    });
+    return {
+      totalSites: sites.length,
+      readSites: readIds.size,
+      totalCountries: countries.size,
+      readCountries: [...countries.values()].filter(
+        (country) => country.readIds.size > 0,
+      ).length,
+      countries: [...countries.values()].map(serialize),
+      regions: [...regions.values()].map(serialize),
+    };
+  }
+
   private applyTheme(
     query: ReturnType<Repository<WorldHeritageSite>['createQueryBuilder']>,
     theme: ThemeDefinition,
@@ -232,6 +307,7 @@ export class DiscoveryService {
       nameEn: site.nameEn,
       shortDescriptionEn: site.shortDescriptionEn,
       statesNames: site.statesNames,
+      isoCodes: site.isoCodes,
       region: site.region,
       category: site.category,
       dateInscribed: site.dateInscribed,

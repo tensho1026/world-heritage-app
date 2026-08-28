@@ -149,6 +149,7 @@ export type DiscoverySite = {
   nameEn: string
   shortDescriptionEn: string | null
   statesNames: string[]
+  isoCodes: string[]
   region: string | null
   category: HeritageCategory
   dateInscribed: number | null
@@ -160,6 +161,24 @@ export type DiscoverySite = {
   isFavorite: boolean
   isReadLater: boolean
   readCount: number
+}
+
+export type HeritageProgressItem = {
+  name: string
+  isoCode?: string
+  total: number
+  read: number
+  percentage: number
+  sites: Array<{ uuid: string; nameEn: string; read: boolean }>
+}
+
+export type HeritageMapProgress = {
+  totalSites: number
+  readSites: number
+  totalCountries: number
+  readCountries: number
+  countries: HeritageProgressItem[]
+  regions: HeritageProgressItem[]
 }
 
 export type DiscoveryFilters = {

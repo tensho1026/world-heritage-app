@@ -25,6 +25,11 @@ export class DiscoveryController {
     return this.discoveryService.getRandom(filters);
   }
 
+  @Get('progress')
+  progress() {
+    return this.discoveryService.getProgress();
+  }
+
   @Get('themes')
   themes() {
     return this.discoveryService.getThemes();

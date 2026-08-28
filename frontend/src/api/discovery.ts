@@ -2,6 +2,7 @@ import type {
   DiscoveryFilterOptions,
   DiscoveryFilters,
   DiscoverySite,
+  HeritageMapProgress,
   HeritageTheme,
 } from '../types'
 import { apiClient } from './client'
@@ -43,6 +44,13 @@ export async function getRandomDiscoverySite(filters: DiscoveryFilters) {
   const { data } = await apiClient.get<DiscoverySite | null>(
     '/discovery/random',
     { params: params(filters) },
+  )
+  return data
+}
+
+export async function getMapProgress() {
+  const { data } = await apiClient.get<HeritageMapProgress>(
+    '/discovery/progress',
   )
   return data
 }
