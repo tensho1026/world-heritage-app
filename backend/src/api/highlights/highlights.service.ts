@@ -136,7 +136,7 @@ export class HighlightsService {
   }
 
   private async requireSite(id: string) {
-    if (!(await this.heritageRepository.exist({ where: { uuid: id } }))) {
+    if (!(await this.heritageRepository.exists({ where: { uuid: id } }))) {
       throw new NotFoundException('World Heritage site was not found.');
     }
   }

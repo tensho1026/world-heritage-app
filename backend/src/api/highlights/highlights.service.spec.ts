@@ -11,7 +11,7 @@ describe('HighlightsService', () => {
     find: jest.fn(),
     delete: jest.fn(),
   };
-  const heritageRepository = { exist: jest.fn() };
+  const heritageRepository = { exists: jest.fn() };
   const service = new HighlightsService(
     highlightRepository as unknown as Repository<ArticleHighlight>,
     heritageRepository as unknown as Repository<WorldHeritageSite>,
@@ -19,7 +19,7 @@ describe('HighlightsService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    heritageRepository.exist.mockResolvedValue(true);
+    heritageRepository.exists.mockResolvedValue(true);
     highlightRepository.findOneBy.mockResolvedValue(null);
   });
 
