@@ -23,7 +23,12 @@ export type DiscoveryFilters = {
   favorite?: string;
   comprehension?: string;
   theme?: string;
+  page?: string;
+  pageSize?: string;
 };
+
+const DISCOVERY_PAGE_SIZE = 24;
+const MAX_DISCOVERY_PAGE_SIZE = 100;
 
 @Injectable()
 export class DiscoveryService {
@@ -36,7 +41,68 @@ export class DiscoveryService {
     private readonly readRepository: Repository<HeritageRead>,
   ) {}
 
+  async searchPage(filters: DiscoveryFilters) {
+    const page = this.positiveInteger(filters.page, 1);
+    const pageSize = Math.min(
+      this.positiveInteger(filters.pageSize, DISCOVERY_PAGE_SIZE),
+      MAX_DISCOVERY_PAGE_SIZE,
+    );
+    const query = this.createSearchQuery(filters);
+    query.select([
+      'site.uuid',
+      'site.nameEn',
+      'site.statesNames',
+      'site.category',
+      'site.dateInscribed',
+      'site.isFeatured',
+    ]);
+    const [sites, total] = await query
+      .orderBy('site.isFeatured', 'DESC')
+      .addOrderBy('site.nameEn', 'ASC')
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+
+    return {
+      items: await this.attachLearning(sites),
+      total,
+      page,
+      pageSize,
+      totalPages: Math.ceil(total / pageSize),
+    };
+  }
+
+  async searchMap(filters: DiscoveryFilters) {
+    const query = this.createSearchQuery(filters, true);
+    query.select([
+      'site.uuid',
+      'site.nameEn',
+      'site.statesNames',
+      'site.category',
+      'site.dateInscribed',
+      'site.latitude',
+      'site.longitude',
+      'site.isFeatured',
+    ]);
+    const sites = await query
+      .orderBy('site.isFeatured', 'DESC')
+      .addOrderBy('site.nameEn', 'ASC')
+      .take(2_000)
+      .getMany();
+    return this.attachLearning(sites);
+  }
+
   async search(filters: DiscoveryFilters, mapOnly = false) {
+    const query = this.createSearchQuery(filters, mapOnly);
+    const sites = await query
+      .orderBy('site.isFeatured', 'DESC')
+      .addOrderBy('site.nameEn', 'ASC')
+      .take(2_000)
+      .getMany();
+    return this.attachLearning(sites);
+  }
+
+  private createSearchQuery(filters: DiscoveryFilters, mapOnly = false) {
     const query = this.heritageRepository.createQueryBuilder('site');
     const q = filters.q?.trim();
     if (q) {
@@ -115,12 +181,7 @@ export class DiscoveryService {
         .andWhere('site.longitude IS NOT NULL');
     }
 
-    const sites = await query
-      .orderBy('site.isFeatured', 'DESC')
-      .addOrderBy('site.nameEn', 'ASC')
-      .take(2_000)
-      .getMany();
-    return this.attachLearning(sites);
+    return query;
   }
 
   async getFilters() {
@@ -178,14 +239,34 @@ export class DiscoveryService {
   }
 
   async getRandom(filters: DiscoveryFilters) {
-    const sites = await this.search(filters);
-    if (!sites.length) return null;
-    return sites[Math.floor(Math.random() * sites.length)];
+    const site = await this.createSearchQuery(filters)
+      .select([
+        'site.uuid',
+        'site.nameEn',
+        'site.statesNames',
+        'site.category',
+        'site.dateInscribed',
+        'site.isFeatured',
+      ])
+      .orderBy('RANDOM()')
+      .limit(1)
+      .getOne();
+    if (!site) return null;
+    return (await this.attachLearning([site]))[0];
   }
 
   async getProgress() {
     const [sites, readRows] = await Promise.all([
-      this.heritageRepository.find({ order: { nameEn: 'ASC' } }),
+      this.heritageRepository.find({
+        select: {
+          uuid: true,
+          nameEn: true,
+          statesNames: true,
+          isoCodes: true,
+          region: true,
+        },
+        order: { nameEn: 'ASC' },
+      }),
       this.readRepository
         .createQueryBuilder('reading')
         .select('DISTINCT reading.heritageSiteId', 'heritageSiteId')
@@ -236,7 +317,7 @@ export class DiscoveryService {
       regions.set(regionName, region);
     }
 
-    const serialize = (bucket: ProgressBucket) => ({
+    const serialize = (bucket: ProgressBucket, includeSites = true) => ({
       name: bucket.name,
       ...(bucket.isoCode ? { isoCode: bucket.isoCode } : {}),
       total: bucket.siteIds.size,
@@ -244,7 +325,7 @@ export class DiscoveryService {
       percentage: bucket.siteIds.size
         ? Math.round((bucket.readIds.size / bucket.siteIds.size) * 100)
         : 0,
-      sites: bucket.sites,
+      sites: includeSites ? bucket.sites : [],
     });
     return {
       totalSites: sites.length,
@@ -253,21 +334,44 @@ export class DiscoveryService {
       readCountries: [...countries.values()].filter(
         (country) => country.readIds.size > 0,
       ).length,
-      countries: [...countries.values()].map(serialize),
-      regions: [...regions.values()].map(serialize),
+      countries: [...countries.values()].map((country) => serialize(country)),
+      regions: [...regions.values()].map((region) => serialize(region, false)),
     };
   }
 
   async getTimeline(filters: DiscoveryFilters) {
-    const summaries = await this.search(filters);
-    if (!summaries.length) return [];
-    const sites = await this.heritageRepository.findBy({
-      uuid: In(summaries.map((site) => site.uuid)),
-    });
-    const siteMap = new Map(sites.map((site) => [site.uuid, site]));
-    return summaries.map((summary) => ({
-      ...summary,
-      historicalPeriods: this.historicalPeriods(siteMap.get(summary.uuid)!),
+    const sites = await this.createSearchQuery(filters)
+      .select([
+        'site.uuid',
+        'site.unescoId',
+        'site.nameEn',
+        'site.shortDescriptionEn',
+        'site.descriptionEn',
+        'site.justificationEn',
+        'site.statesNames',
+        'site.category',
+        'site.dateInscribed',
+        'site.historicalPeriodStart',
+        'site.historicalPeriodEnd',
+        'site.historicalPeriodLabel',
+        'site.historicalPeriodType',
+        'site.historicalPeriodSourceUrl',
+        'site.historicalPeriodApproximate',
+        'site.historicalPeriodVerified',
+        'site.historicalPeriods',
+      ])
+      .orderBy('site.isFeatured', 'DESC')
+      .addOrderBy('site.nameEn', 'ASC')
+      .take(2_000)
+      .getMany();
+    return sites.map((site) => ({
+      uuid: site.uuid,
+      nameEn: site.nameEn,
+      shortDescriptionEn: site.shortDescriptionEn?.slice(0, 240) ?? null,
+      statesNames: site.statesNames,
+      category: site.category,
+      dateInscribed: site.dateInscribed,
+      historicalPeriods: this.historicalPeriods(site),
     }));
   }
 
@@ -379,6 +483,11 @@ export class DiscoveryService {
 
   private formatHistoricalYear(year: number) {
     return year < 0 ? `${Math.abs(year)} BCE` : String(year);
+  }
+
+  private positiveInteger(value: string | undefined, fallback: number) {
+    const parsed = Number(value);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
   }
 
   private async attachLearning(sites: WorldHeritageSite[]) {

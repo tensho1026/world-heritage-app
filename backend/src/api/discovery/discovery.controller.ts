@@ -7,12 +7,12 @@ export class DiscoveryController {
 
   @Get('sites')
   search(@Query() filters: DiscoveryFilters) {
-    return this.discoveryService.search(filters);
+    return this.discoveryService.searchPage(filters);
   }
 
   @Get('map')
   map(@Query() filters: DiscoveryFilters) {
-    return this.discoveryService.search(filters, true);
+    return this.discoveryService.searchMap(filters);
   }
 
   @Get('filters')

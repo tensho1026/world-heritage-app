@@ -179,6 +179,14 @@ export type DiscoverySite = {
   readCount: number
 }
 
+export type DiscoverySearchPage = {
+  items: DiscoverySite[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export type HeritageProgressItem = {
   name: string
   isoCode?: string
