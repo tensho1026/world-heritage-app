@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 
 type WikipediaPage = {
+  title?: string;
+  index?: number;
   fullurl?: string;
   pageimage?: string;
   original?: { source?: string };
@@ -23,6 +25,42 @@ type WikipediaResponse = {
 };
 
 const FAILED_FETCH_RETRY_MS = 24 * 60 * 60 * 1_000;
+const GENERIC_WIKIPEDIA_TITLES = new Set([
+  'unesco',
+  'world heritage',
+  'world heritage committee',
+  'world heritage site',
+]);
+const TITLE_STOP_WORDS = new Set([
+  'a',
+  'an',
+  'ancient',
+  'and',
+  'archaeological',
+  'area',
+  'at',
+  'centre',
+  'center',
+  'city',
+  'cultural',
+  'for',
+  'historic',
+  'in',
+  'landscape',
+  'national',
+  'of',
+  'on',
+  'park',
+  'remains',
+  'reserve',
+  'site',
+  'sites',
+  'system',
+  'the',
+  'unesco',
+  'world',
+  'heritage',
+]);
 
 @Injectable()
 export class WikipediaMediaService {
@@ -34,9 +72,10 @@ export class WikipediaMediaService {
 
   async fillMissingImage(site: WorldHeritageSite): Promise<WorldHeritageSite> {
     if (
-      site.wikipediaImageUrl ||
+      this.hasRelevantWikipediaImage(site) ||
       this.isUsableMainImageUrl(site.mainImageUrl) ||
-      this.wasRecentlyFetched(site.wikipediaImageFetchedAt)
+      (!site.wikipediaImageUrl &&
+        this.wasRecentlyFetched(site.wikipediaImageFetchedAt))
     ) {
       return site;
     }
@@ -74,12 +113,16 @@ export class WikipediaMediaService {
       }
 
       const data = (await response.json()) as WikipediaResponse;
-      const pages = Object.values(data.query?.pages ?? {});
-      const page =
-        pages.find(
-          (candidate) =>
-            candidate.original?.source || candidate.thumbnail?.source,
-        ) ?? pages[0];
+      const pages = Object.values(data.query?.pages ?? {}).sort(
+        (left, right) =>
+          (left.index ?? Number.MAX_SAFE_INTEGER) -
+          (right.index ?? Number.MAX_SAFE_INTEGER),
+      );
+      const page = pages.find(
+        (candidate) =>
+          (candidate.original?.source || candidate.thumbnail?.source) &&
+          this.isRelevantWikipediaTitle(site.nameEn, candidate.title),
+      );
       const imageUrl =
         page?.original?.source ?? page?.thumbnail?.source ?? null;
       const attribution = page?.pageimage
@@ -103,7 +146,118 @@ export class WikipediaMediaService {
     if (this.isUsableMainImageUrl(site.mainImageUrl)) {
       return site.mainImageUrl;
     }
-    return site.wikipediaImageUrl;
+    return this.hasRelevantWikipediaImage(site) ? site.wikipediaImageUrl : null;
+  }
+
+  private hasRelevantWikipediaImage(site: WorldHeritageSite) {
+    if (!site.wikipediaImageUrl) return false;
+    const title = this.wikipediaTitleFromUrl(site.wikipediaPageUrl);
+    return title !== null && this.isRelevantWikipediaTitle(site.nameEn, title);
+  }
+
+  private wikipediaTitleFromUrl(url: string | null) {
+    if (!url) return null;
+
+    try {
+      const parsed = new URL(url);
+      if (!parsed.hostname.endsWith('wikipedia.org')) return null;
+      const match = parsed.pathname.match(/^\/wiki\/(.+)$/);
+      return match ? decodeURIComponent(match[1]).replace(/_/g, ' ') : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isRelevantWikipediaTitle(siteName: string, candidateTitle?: string) {
+    if (!candidateTitle) return false;
+
+    const normalizedSiteName = this.normalizeTitle(siteName);
+    const normalizedCandidate = this.normalizeTitle(candidateTitle);
+    if (
+      !normalizedCandidate ||
+      GENERIC_WIKIPEDIA_TITLES.has(normalizedCandidate) ||
+      normalizedCandidate.startsWith('list of world heritage sites')
+    ) {
+      return false;
+    }
+    if (
+      normalizedSiteName === normalizedCandidate ||
+      normalizedSiteName.includes(normalizedCandidate) ||
+      normalizedCandidate.includes(normalizedSiteName)
+    ) {
+      return true;
+    }
+
+    const siteTokens = this.titleTokens(normalizedSiteName);
+    const candidateTokens = this.titleTokens(normalizedCandidate);
+    const smallerTokenCount = Math.min(siteTokens.size, candidateTokens.size);
+    if (smallerTokenCount === 0) return false;
+
+    const firstSiteToken = siteTokens.values().next().value as
+      string | undefined;
+    const firstCandidateToken = candidateTokens.values().next().value as
+      string | undefined;
+    if (
+      !firstSiteToken ||
+      !firstCandidateToken ||
+      !this.areMatchingTitleTokens(firstSiteToken, firstCandidateToken)
+    ) {
+      return false;
+    }
+
+    const overlap = [...candidateTokens].filter((candidateToken) =>
+      [...siteTokens].some((siteToken) =>
+        this.areMatchingTitleTokens(siteToken, candidateToken),
+      ),
+    ).length;
+    const minimumOverlap = Math.min(2, smallerTokenCount);
+    return overlap >= minimumOverlap && overlap / smallerTokenCount >= 0.6;
+  }
+
+  private normalizeTitle(value: string) {
+    return (
+      this.toPlainText(value)
+        ?.normalize('NFKD')
+        .replace(/\p{Diacritic}/gu, '')
+        .toLowerCase()
+        .replace(/[^\p{Letter}\p{Number}]+/gu, ' ')
+        .trim() ?? ''
+    );
+  }
+
+  private titleTokens(value: string) {
+    return new Set(
+      value
+        .split(' ')
+        .filter((token) => token.length > 1 && !TITLE_STOP_WORDS.has(token)),
+    );
+  }
+
+  private areMatchingTitleTokens(left: string, right: string) {
+    if (left === right) return true;
+    if (Math.max(left.length, right.length) < 5) return false;
+    if (Math.abs(left.length - right.length) > 1) return false;
+
+    let leftIndex = 0;
+    let rightIndex = 0;
+    let edits = 0;
+    while (leftIndex < left.length && rightIndex < right.length) {
+      if (left[leftIndex] === right[rightIndex]) {
+        leftIndex += 1;
+        rightIndex += 1;
+        continue;
+      }
+      edits += 1;
+      if (edits > 1) return false;
+      if (left.length > right.length) leftIndex += 1;
+      else if (right.length > left.length) rightIndex += 1;
+      else {
+        leftIndex += 1;
+        rightIndex += 1;
+      }
+    }
+    if (leftIndex < left.length || rightIndex < right.length) edits += 1;
+    return edits <= 1;
   }
 
   private isUsableMainImageUrl(url: string | null) {
