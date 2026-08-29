@@ -6,6 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
+import { DeepLService } from './deepl.service';
 import { LibreTranslateService } from './libretranslate.service';
 
 const ARTICLE_FIELDS = {
@@ -17,12 +18,17 @@ const ARTICLE_FIELDS = {
   mainImageCaptionEn: 'mainImageCaptionJa',
 } as const;
 
+const DEEPL_ARTICLE_FIELDS = Object.keys(ARTICLE_FIELDS) as Array<
+  keyof typeof ARTICLE_FIELDS
+>;
+
 @Injectable()
 export class TranslationService {
   constructor(
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
     private readonly libreTranslateService: LibreTranslateService,
+    private readonly deepLService: DeepLService,
   ) {}
 
   async translateArticle(heritageSiteId: string) {
@@ -41,6 +47,26 @@ export class TranslationService {
             : [];
         },
       ),
+    );
+  }
+
+  async translateArticleWithDeepL(heritageSiteId: string) {
+    const site = await this.heritageRepository.findOneBy({
+      uuid: heritageSiteId,
+    });
+    if (!site)
+      throw new NotFoundException('World Heritage site was not found.');
+
+    const presentFields = DEEPL_ARTICLE_FIELDS.filter((field) => {
+      const value = site[field];
+      return typeof value === 'string' && value.trim().length > 0;
+    });
+    const translations = await this.deepLService.translateTexts(
+      presentFields.map((field) => site[field] as string),
+    );
+
+    return Object.fromEntries(
+      presentFields.map((field, index) => [field, translations[index]]),
     );
   }
 

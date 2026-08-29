@@ -10,6 +10,11 @@ export class TranslationController {
     return this.translationService.translateArticle(heritageSiteId);
   }
 
+  @Post('article/deepl')
+  translateArticleWithDeepL(@Body('heritageSiteId') heritageSiteId: string) {
+    return this.translationService.translateArticleWithDeepL(heritageSiteId);
+  }
+
   @Post('selection')
   translateSelection(
     @Body('expression') expression: unknown,

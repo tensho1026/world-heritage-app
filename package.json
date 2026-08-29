@@ -4,7 +4,9 @@
   "private": true,
   "scripts": {
     "prepare": "husky",
-    "dev": "concurrently --kill-others-on-fail --names backend,frontend --prefix-colors blue,green \"npm --prefix backend run start:dev\" \"npm --prefix frontend run dev\"",
+    "libretranslate:setup": "bash scripts/setup-libretranslate.sh",
+    "libretranslate:start": "bash scripts/start-libretranslate.sh",
+    "dev": "concurrently --kill-others-on-fail --names libretranslate,backend,frontend --prefix-colors magenta,blue,green \"npm run libretranslate:start\" \"npm --prefix backend run start:dev\" \"npm --prefix frontend run dev\"",
     "lint": "npm --prefix frontend run lint && npm --prefix backend run lint"
   },
   "devDependencies": {

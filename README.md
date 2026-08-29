@@ -23,13 +23,16 @@ cp .env.example .env
 cd ../backend
 npm install
 cp .env.example .env
+
+cd ..
+npm run libretranslate:setup
 ```
 
 `backend/.env` で次を設定します。
 
 - `DATABASE_URL`: Neon Postgresの接続URL
-- `DEEPL_API_KEY`: 将来DeepL連携を再開する場合のAPIキー（現在は未使用）
-- `DEEPL_API_BASE_URL`: 将来DeepL連携を再開する場合のAPIホスト
+- `DEEPL_API_KEY`: 「DeepLで翻訳」ボタンで使うDeepL APIキー
+- `DEEPL_API_BASE_URL`: DeepL契約プランに対応するAPIホスト
 - `WIKIMEDIA_USER_AGENT`: 連絡先を含むWikimedia向けUser-Agent
 - `LIBRETRANSLATE_URL`: 世界遺産記事の事前翻訳と未保存テキストの翻訳に使うLibreTranslateのURL
 - `LIBRETRANSLATE_API_KEY`: LibreTranslate側でAPIキーを要求する場合のみ設定
@@ -62,12 +65,12 @@ npm run translate:heritages
 記事の日本語訳は表示時に外部APIへ送信せず、DBの保存済み訳を使用します。
 `translate:heritages` は1件ごとに保存されるため中断後も再開でき、UNESCOの
 英語原文が変わった項目だけを再翻訳します。単語・選択範囲のように事前保存できない
-テキストもLibreTranslateで翻訳し、翻訳キャッシュDBへ保存します。DeepL連携の
-実装と設定は将来の再利用用に残しています。
+テキストもLibreTranslateで翻訳し、翻訳キャッシュDBへ保存します。「DeepLで翻訳」
+ボタンを明示的に押した場合だけ、同じ記事をDeepLで翻訳します。
 
 ## 開発サーバー
 
-リポジトリのルートから、フロントエンドとバックエンドを同時に起動できます。
+リポジトリのルートから、LibreTranslate、フロントエンド、バックエンドを同時に起動できます。
 
 ```bash
 npm run dev

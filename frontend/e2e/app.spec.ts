@@ -4,34 +4,45 @@ const heritage = {
   uuid: 'a1d7e93d-f865-53f4-a76b-0c7895273013',
   unescoId: '208',
   nameEn: 'Cultural Landscape and Archaeological Remains of the Bamiyan Valley',
+  nameJa: 'バーミヤン渓谷の文化的景観と古代遺跡群',
   shortDescriptionEn: 'The Bamiyan Valley contains important historic remains.',
+  shortDescriptionJa: 'バーミヤン渓谷には重要な歴史的遺構があります。',
   descriptionEn:
     'The cultural landscape and archaeological remains represent artistic developments in the region.',
+  descriptionJa:
+    'この文化的景観と考古遺跡は、この地域における芸術の発展を示しています。',
   justificationEn:
     'The site bears exceptional testimony to cultural traditions.',
+  justificationJa: 'この遺産は文化的伝統を伝える顕著な証拠です。',
   dateInscribed: 2003,
   danger: true,
   dangerList: '2003-present',
+  dangerListJa: '2003年から現在まで',
   areaHectares: 158.9,
   culturalCriteria: ['c1', 'c2'],
   naturalCriteria: [],
   criteriaText: '(i)(ii)',
+  criteriaTextJa: '(i)(ii)',
   category: 'Cultural',
   statesNames: ['Afghanistan'],
+  statesNamesJa: ['アフガニスタン'],
   isoCodes: ['af'],
   region: 'Asia and the Pacific',
+  regionJa: 'アジア・太平洋',
   latitude: 34.84694,
   longitude: 67.82525,
   mainImageUrl: null,
   mainImageAuthor: null,
   mainImageCopyright: null,
   mainImageCaptionEn: null,
+  mainImageCaptionJa: null,
   mainImageSourceUrl: null,
   mainImageLicense: null,
   imageUrls: [],
   mainVideoUrl: null,
   mainVideoAuthor: null,
   mainVideoCaptionEn: null,
+  mainVideoCaptionJa: null,
   videoUrls: [],
   componentsCount: 8,
   isFeatured: true,
@@ -88,6 +99,7 @@ test('shows the application heading and learning navigation', async ({
 test('renders a random heritage reader with learning actions', async ({
   page,
 }) => {
+  let deepLRequests = 0
   await page.route('**/api/heritage/random**', (route) =>
     route.fulfill({ json: heritage }),
   )
@@ -108,6 +120,15 @@ test('renders a random heritage reader with learning actions', async ({
   await page.route('**/api/highlights/site/**', (route) =>
     route.fulfill({ json: [] }),
   )
+  await page.route('**/api/translations/article/deepl', (route) => {
+    deepLRequests += 1
+    return route.fulfill({
+      json: {
+        nameEn: 'DeepLによるバーミヤン渓谷',
+        shortDescriptionEn: 'DeepLで翻訳した概要です。',
+      },
+    })
+  })
   await page.goto('/random-heritage?mode=famous')
 
   await expect(
@@ -117,15 +138,22 @@ test('renders a random heritage reader with learning actions', async ({
     page.getByRole('button', { name: '日本語訳を表示' }),
   ).toBeVisible()
   await expect(
+    page.getByRole('button', { name: 'DeepLで翻訳', exact: true }),
+  ).toBeVisible()
+  await expect(
     page.getByRole('button', { name: '単語を記録する' }),
   ).toBeVisible()
   await expect(
     page.getByRole('button', { name: '英文をハイライト' }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'B1', exact: true }).click()
-  await expect(
-    page.getByText(/アプリ内の語彙置換による学習用参考文/),
-  ).toBeVisible()
+  await expect(page.getByRole('button', { name: 'B1' })).toHaveCount(0)
+  await page.getByRole('button', { name: '日本語訳を表示' }).click()
+  await expect(page.getByText(heritage.nameJa)).toBeVisible()
+  expect(deepLRequests).toBe(0)
+  await page.getByRole('button', { name: '英語だけに戻す' }).click()
+  await page.getByRole('button', { name: 'DeepLで翻訳', exact: true }).click()
+  await expect(page.getByText('DeepLによるバーミヤン渓谷')).toBeVisible()
+  expect(deepLRequests).toBe(1)
   const aiLink = page.getByRole('link', { name: 'AIで全文翻訳 ↗' })
   await expect(aiLink).toHaveAttribute('href', /chatgpt\.com\/\?prompt=/)
 })
@@ -589,13 +617,6 @@ test('answers a writing exercise from a heritage article', async ({ page }) => {
   )
   await page.route(/\/api\/vocabulary(?:\?.*)?$/, (route) =>
     route.fulfill({ json: [] }),
-  )
-  await page.route('**/api/translations/article', (route) =>
-    route.fulfill({
-      json: {
-        shortDescriptionEn: 'バーミヤン渓谷には重要な歴史的遺構があります。',
-      },
-    }),
   )
   await page.route('**/api/practice/attempts', (route) =>
     route.fulfill({ json: { id: 1 } }),
