@@ -77,6 +77,24 @@ describe('WikipediaMediaService', () => {
     );
   });
 
+  it('serves a bounded Wikimedia thumbnail for display', () => {
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      nameEn: 'Kernave Archaeological Site',
+      wikipediaPageUrl:
+        'https://en.wikipedia.org/wiki/Kernav%C4%97_Archaeological_Site',
+      wikipediaImageUrl:
+        'https://upload.wikimedia.org/wikipedia/commons/c/cc/Kernave_mounds.jpg?utm_content=original',
+    });
+
+    expect(service.getWikipediaDisplayImageUrl(site)).toBe(
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Kernave_mounds.jpg/960px-Kernave_mounds.jpg',
+    );
+  });
+
   it('stores a Wikipedia image and its source page as fallback', async () => {
     jest
       .spyOn(global, 'fetch')

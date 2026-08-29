@@ -25,6 +25,7 @@ export function HeritageImage({
     <img
       alt=""
       className={imageClassName}
+      decoding="async"
       loading={loading}
       onError={() => setFailedSiteId(siteId)}
       src={getHeritageImageUrl(siteId)}

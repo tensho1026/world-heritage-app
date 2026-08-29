@@ -73,12 +73,12 @@ export class HeritageService {
       );
     }
 
-    return this.wikipediaMediaService.fillMissingImage(site);
+    return this.withDisplayImage(site);
   }
 
   async getById(id: string) {
     const site = await this.requireSite(id);
-    return this.wikipediaMediaService.fillMissingImage(site);
+    return this.withDisplayImage(site);
   }
 
   async getImageUrl(id: string) {
@@ -330,6 +330,15 @@ export class HeritageService {
     if (!site)
       throw new NotFoundException('World Heritage site was not found.');
     return site;
+  }
+
+  private async withDisplayImage(site: WorldHeritageSite) {
+    const enriched = await this.wikipediaMediaService.fillMissingImage(site);
+    const wikipediaImageUrl =
+      this.wikipediaMediaService.getWikipediaDisplayImageUrl(enriched);
+    return wikipediaImageUrl && wikipediaImageUrl !== enriched.wikipediaImageUrl
+      ? { ...enriched, wikipediaImageUrl }
+      : enriched;
   }
 
   private toSiteSummary(site: WorldHeritageSite) {

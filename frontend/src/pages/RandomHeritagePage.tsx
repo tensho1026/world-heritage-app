@@ -306,6 +306,8 @@ export default function RandomHeritagePage() {
               {imageUrl && !imageFailed ? (
                 <img
                   className="size-full object-cover"
+                  decoding="async"
+                  fetchPriority="high"
                   src={imageUrl}
                   alt={site.mainImageCaptionEn ?? site.nameEn}
                   onError={() => setImageFailed(true)}
