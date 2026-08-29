@@ -1,26 +1,26 @@
 import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
-import { DeepLService } from './deepl.service';
+import { LibreTranslateService } from './libretranslate.service';
 import { TranslationService } from './translation.service';
 
 describe('TranslationService', () => {
   const repository = {
     findOneBy: jest.fn(),
   };
-  const deepLService = {
+  const libreTranslateService = {
     translateTexts: jest.fn(),
   };
   const service = new TranslationService(
     repository as unknown as Repository<WorldHeritageSite>,
-    deepLService as unknown as DeepLService,
+    libreTranslateService as unknown as LibreTranslateService,
   );
 
   beforeEach(() => {
     repository.findOneBy.mockReset();
-    deepLService.translateTexts.mockReset();
+    libreTranslateService.translateTexts.mockReset();
   });
 
-  it('returns stored article translations without calling DeepL', async () => {
+  it('returns stored article translations without calling an API', async () => {
     repository.findOneBy.mockResolvedValue({
       nameJa: 'ガラパゴス諸島',
       shortDescriptionJa: '日本語の概要',
@@ -37,18 +37,17 @@ describe('TranslationService', () => {
       justificationEn: '日本語の登録理由',
       criteriaText: '(vii)(viii)(ix)(x)',
     });
-    expect(deepLService.translateTexts).not.toHaveBeenCalled();
+    expect(libreTranslateService.translateTexts).not.toHaveBeenCalled();
   });
 
-  it('keeps DeepL for user-selected text translation', async () => {
-    deepLService.translateTexts.mockResolvedValue(['世界遺産']);
+  it('uses LibreTranslate for user-selected text translation', async () => {
+    libreTranslateService.translateTexts.mockResolvedValue(['世界遺産']);
 
     await expect(
       service.translateSelection('World Heritage', 'A World Heritage Site.'),
     ).resolves.toEqual({ translationJa: '世界遺産' });
-    expect(deepLService.translateTexts).toHaveBeenCalledWith(
-      ['World Heritage'],
-      'A World Heritage Site.',
-    );
+    expect(libreTranslateService.translateTexts).toHaveBeenCalledWith([
+      'World Heritage',
+    ]);
   });
 });

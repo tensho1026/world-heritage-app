@@ -2,7 +2,7 @@
 
 React フロントエンドと NestJS バックエンドをそれぞれ独立して管理するリポジトリです。
 
-世界遺産の英語資料を読み、DeepL訳、英文読み上げ、文脈付き語彙保存、間隔反復、読後クイズ、ハイライト、学習レポートを利用できる個人向け学習アプリです。テーマ別探索、読了状況を色分けする世界地図、歴史・登録年タイムライン、ディクテーション、英作文、自分で設定する月間チャレンジにも対応しています。認証はありません。
+世界遺産の英語資料を読み、DBに保存した日本語訳、英文読み上げ、文脈付き語彙保存、間隔反復、読後クイズ、ハイライト、学習レポートを利用できる個人向け学習アプリです。テーマ別探索、読了状況を色分けする世界地図、歴史・登録年タイムライン、ディクテーション、英作文、自分で設定する月間チャレンジにも対応しています。認証はありません。
 
 ## 仕様書
 
@@ -28,10 +28,10 @@ cp .env.example .env
 `backend/.env` で次を設定します。
 
 - `DATABASE_URL`: Neon Postgresの接続URL
-- `DEEPL_API_KEY`: DeepL APIキー
-- `DEEPL_API_BASE_URL`: Developer/Freeでは `https://api-free.deepl.com`
+- `DEEPL_API_KEY`: 将来DeepL連携を再開する場合のAPIキー（現在は未使用）
+- `DEEPL_API_BASE_URL`: 将来DeepL連携を再開する場合のAPIホスト
 - `WIKIMEDIA_USER_AGENT`: 連絡先を含むWikimedia向けUser-Agent
-- `LIBRETRANSLATE_URL`: 世界遺産記事を事前翻訳するLibreTranslateのURL
+- `LIBRETRANSLATE_URL`: 世界遺産記事の事前翻訳と未保存テキストの翻訳に使うLibreTranslateのURL
 - `LIBRETRANSLATE_API_KEY`: LibreTranslate側でAPIキーを要求する場合のみ設定
 
 ChatGPTへの「AIで全文翻訳」は利用者自身のChatGPTをプロンプト付きで開くため、OpenAI APIキーは不要です。
@@ -61,8 +61,9 @@ npm run translate:heritages
 
 記事の日本語訳は表示時に外部APIへ送信せず、DBの保存済み訳を使用します。
 `translate:heritages` は1件ごとに保存されるため中断後も再開でき、UNESCOの
-英語原文が変わった項目だけを再翻訳します。単語・選択範囲の翻訳用DeepL連携は
-引き続き利用できます。
+英語原文が変わった項目だけを再翻訳します。単語・選択範囲のように事前保存できない
+テキストもLibreTranslateで翻訳し、翻訳キャッシュDBへ保存します。DeepL連携の
+実装と設定は将来の再利用用に残しています。
 
 ## 開発サーバー
 

@@ -6,7 +6,7 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
-import { DeepLService } from './deepl.service';
+import { LibreTranslateService } from './libretranslate.service';
 
 const ARTICLE_FIELDS = {
   nameEn: 'nameJa',
@@ -22,7 +22,7 @@ export class TranslationService {
   constructor(
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
-    private readonly deepLService: DeepLService,
+    private readonly libreTranslateService: LibreTranslateService,
   ) {}
 
   async translateArticle(heritageSiteId: string) {
@@ -59,10 +59,9 @@ export class TranslationService {
       throw new BadRequestException('The source sentence is too long.');
     }
 
-    const [translationJa] = await this.deepLService.translateTexts(
-      [normalizedExpression],
-      sourceSentenceEn.trim(),
-    );
+    const [translationJa] = await this.libreTranslateService.translateTexts([
+      normalizedExpression,
+    ]);
     return { translationJa };
   }
 }
