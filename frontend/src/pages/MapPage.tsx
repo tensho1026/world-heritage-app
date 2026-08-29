@@ -1,10 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import type { FeatureCollection, Point } from 'geojson'
-import {
-  type ExpressionSpecification,
-  type GeoJSONSource,
+import type {
+  ExpressionSpecification,
+  GeoJSONSource,
   Map as MapLibreMap,
-  NavigationControl,
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -62,19 +61,27 @@ export default function MapPage() {
 
   useEffect(() => {
     if (!mapContainer.current || mapInstance.current) return
-    const map = new MapLibreMap({
-      container: mapContainer.current,
-      style: mapStyle,
-      center: [10, 20],
-      zoom: 1.35,
-      minZoom: 1,
-    })
-    map.addControl(new NavigationControl(), 'top-right')
-    map.on('load', () => setMapReady(true))
-    mapInstance.current = map
+    let cancelled = false
+    let map: MapLibreMap | null = null
+    void import('maplibre-gl').then(
+      ({ Map: MapLibreMapConstructor, NavigationControl }) => {
+        if (cancelled || !mapContainer.current) return
+        map = new MapLibreMapConstructor({
+          container: mapContainer.current,
+          style: mapStyle,
+          center: [10, 20],
+          zoom: 1.35,
+          minZoom: 1,
+        })
+        map.addControl(new NavigationControl(), 'top-right')
+        map.on('load', () => setMapReady(true))
+        mapInstance.current = map
+      },
+    )
     return () => {
-      map.remove()
-      mapInstance.current = null
+      cancelled = true
+      map?.remove()
+      if (mapInstance.current === map) mapInstance.current = null
     }
   }, [])
 

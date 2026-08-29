@@ -73,12 +73,12 @@ export class HeritageService {
       );
     }
 
-    return this.wikipediaMediaService.fillMissingImage(site);
+    return this.withDisplayImage(site);
   }
 
   async getById(id: string) {
     const site = await this.requireSite(id);
-    return this.wikipediaMediaService.fillMissingImage(site);
+    return this.withDisplayImage(site);
   }
 
   async getImageUrl(id: string) {
@@ -332,6 +332,15 @@ export class HeritageService {
     return site;
   }
 
+  private async withDisplayImage(site: WorldHeritageSite) {
+    const enriched = await this.wikipediaMediaService.fillMissingImage(site);
+    const wikipediaImageUrl =
+      this.wikipediaMediaService.getWikipediaDisplayImageUrl(enriched);
+    return wikipediaImageUrl && wikipediaImageUrl !== enriched.wikipediaImageUrl
+      ? { ...enriched, wikipediaImageUrl }
+      : enriched;
+  }
+
   private toSiteSummary(site: WorldHeritageSite) {
     return {
       uuid: site.uuid,
@@ -340,7 +349,7 @@ export class HeritageService {
       category: site.category,
       statesNames: site.statesNames,
       region: site.region,
-      mainImageUrl: site.mainImageUrl ?? site.wikipediaImageUrl,
+      mainImageUrl: this.wikipediaMediaService.getDisplayImageUrl(site),
       dateInscribed: site.dateInscribed,
     };
   }

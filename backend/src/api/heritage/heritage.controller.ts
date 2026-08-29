@@ -32,6 +32,7 @@ export class HeritageController {
 
   @Get(':id/image')
   @Redirect()
+  @Header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800')
   async getImage(@Param('id') id: string) {
     return { url: await this.heritageService.getImageUrl(id), statusCode: 302 };
   }

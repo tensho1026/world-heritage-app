@@ -10,6 +10,7 @@ export function DiscoveryCard({ site }: { site: DiscoverySite }) {
           fallbackClassName="grid size-full place-items-center text-2xl text-white/70"
           imageClassName="size-full object-cover"
           siteId={site.uuid}
+          src={site.mainImageUrl}
         />
       </div>
       <div className="p-5">

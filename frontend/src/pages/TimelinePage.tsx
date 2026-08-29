@@ -30,6 +30,7 @@ export default function TimelinePage() {
   const [era, setEra] = useState<Era>('all')
   const [draft, setDraft] = useState<DiscoveryFilters>({})
   const [applied, setApplied] = useState<DiscoveryFilters>({})
+  const [visibleLimit, setVisibleLimit] = useState(100)
   const filters = useQuery({
     queryKey: ['discovery-filters'],
     queryFn: getDiscoveryFilters,
@@ -91,6 +92,7 @@ export default function TimelinePage() {
               key={value}
               onClick={() => {
                 setMode(value)
+                setVisibleLimit(100)
                 if (value === 'unesco') setEra('all')
               }}
               type="button"
@@ -106,11 +108,15 @@ export default function TimelinePage() {
           </summary>
           <div className="mt-3">
             <DiscoveryFiltersPanel
-              onApply={() => setApplied(draft)}
+              onApply={() => {
+                setApplied(draft)
+                setVisibleLimit(100)
+              }}
               onChange={setDraft}
               onReset={() => {
                 setDraft({})
                 setApplied({})
+                setVisibleLimit(100)
               }}
               options={filters.data}
               value={draft}
@@ -124,7 +130,10 @@ export default function TimelinePage() {
               <button
                 className={`px-4 py-2 text-xs font-bold ${era === item.value ? 'bg-[#b85635] text-white' : 'border border-[#18352f]/20'}`}
                 key={item.value}
-                onClick={() => setEra(item.value)}
+                onClick={() => {
+                  setEra(item.value)
+                  setVisibleLimit(100)
+                }}
                 type="button"
               >
                 {item.label}
@@ -143,13 +152,23 @@ export default function TimelinePage() {
         {timeline.data && (
           <>
             <p className="mt-7 text-xs font-bold text-[#18352f]/50">
-              {visible.length}件を年代順に表示
+              {Math.min(visible.length, visibleLimit)} / {visible.length}
+              件を年代順に表示
             </p>
             <ol className="relative mt-6 ml-4 border-l border-[#b85635]/35 pl-8">
-              {visible.map((entry) => (
+              {visible.slice(0, visibleLimit).map((entry) => (
                 <TimelineEntry entry={entry} key={entry.key} mode={mode} />
               ))}
             </ol>
+            {visible.length > visibleLimit && (
+              <button
+                className="mx-auto mt-2 block border border-[#18352f]/25 px-5 py-3 text-xs font-bold"
+                onClick={() => setVisibleLimit((current) => current + 100)}
+                type="button"
+              >
+                さらに100件表示
+              </button>
+            )}
             {!visible.length && (
               <p className="mt-12 text-center text-sm text-[#18352f]/50">
                 この条件で表示できる年代データがありません。
@@ -161,7 +180,7 @@ export default function TimelinePage() {
                   成立年代が未整備の世界遺産（{unknown.length}件）
                 </summary>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-xs max-[680px]:grid-cols-1">
-                  {unknown.map((site) => (
+                  {unknown.slice(0, 100).map((site) => (
                     <Link
                       className="border-b border-[#18352f]/10 py-2 hover:text-[#b85635]"
                       key={site.uuid}

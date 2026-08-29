@@ -6,23 +6,47 @@ import {
   WorldHeritageSite,
 } from '../../database/entities/world-heritage-site.entity';
 import { DiscoveryService } from './discovery.service';
+import { WikipediaMediaService } from '../heritage/wikipedia-media.service';
 
 describe('DiscoveryService progress and timeline', () => {
+  const heritageQuery = {
+    andWhere: jest.fn(),
+    select: jest.fn(),
+    orderBy: jest.fn(),
+    addOrderBy: jest.fn(),
+    skip: jest.fn(),
+    take: jest.fn(),
+    limit: jest.fn(),
+    getMany: jest.fn(),
+    getManyAndCount: jest.fn(),
+    getOne: jest.fn(),
+  };
   const heritageRepository = {
     find: jest.fn(),
     findBy: jest.fn(),
+    createQueryBuilder: jest.fn(() => heritageQuery),
   };
-  const learningRepository = {};
+  const learningRepository = { findBy: jest.fn() };
   const readQuery = {
     select: jest.fn(),
+    addSelect: jest.fn(),
+    where: jest.fn(),
+    groupBy: jest.fn(),
     getRawMany: jest.fn(),
   };
   readQuery.select.mockReturnValue(readQuery);
   const readRepository = { createQueryBuilder: jest.fn(() => readQuery) };
+  const wikipediaMediaService = {
+    getDisplayImageUrl: jest.fn(
+      (site: WorldHeritageSite) =>
+        site.mainImageUrl ?? site.wikipediaImageUrl ?? null,
+    ),
+  };
   const service = new DiscoveryService(
     heritageRepository as unknown as Repository<WorldHeritageSite>,
     learningRepository as unknown as Repository<HeritageLearningState>,
     readRepository as unknown as Repository<HeritageRead>,
+    wikipediaMediaService as unknown as WikipediaMediaService,
   );
   const shared = {
     uuid: 'a1d7e93d-f865-53f4-a76b-0c7895273013',
@@ -39,6 +63,18 @@ describe('DiscoveryService progress and timeline', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     readQuery.select.mockReturnValue(readQuery);
+    readQuery.addSelect.mockReturnValue(readQuery);
+    readQuery.where.mockReturnValue(readQuery);
+    readQuery.groupBy.mockReturnValue(readQuery);
+    heritageQuery.andWhere.mockReturnValue(heritageQuery);
+    heritageQuery.select.mockReturnValue(heritageQuery);
+    heritageQuery.orderBy.mockReturnValue(heritageQuery);
+    heritageQuery.addOrderBy.mockReturnValue(heritageQuery);
+    heritageQuery.skip.mockReturnValue(heritageQuery);
+    heritageQuery.take.mockReturnValue(heritageQuery);
+    heritageQuery.limit.mockReturnValue(heritageQuery);
+    learningRepository.findBy.mockResolvedValue([]);
+    readQuery.getRawMany.mockResolvedValue([]);
   });
 
   it('counts a transboundary site once per country and ignores rereads', async () => {
@@ -79,17 +115,37 @@ describe('DiscoveryService progress and timeline', () => {
         verified: true,
       },
     ];
-    jest.spyOn(service, 'search').mockResolvedValue([
-      {
-        uuid: shared.uuid,
-        nameEn: shared.nameEn,
-      },
-    ] as Awaited<ReturnType<DiscoveryService['search']>>);
-    heritageRepository.findBy.mockResolvedValue([
+    heritageQuery.getMany.mockResolvedValue([
       { ...shared, historicalPeriods: periods },
     ]);
     await expect(service.getTimeline({})).resolves.toEqual([
       expect.objectContaining({ historicalPeriods: periods }),
     ]);
+  });
+
+  it('returns a bounded discovery page with total metadata', async () => {
+    heritageQuery.getManyAndCount.mockResolvedValue([[shared], 1_248]);
+
+    await expect(
+      service.searchPage({ page: '2', pageSize: '24' }),
+    ).resolves.toMatchObject({
+      total: 1_248,
+      page: 2,
+      pageSize: 24,
+      totalPages: 52,
+      items: [expect.objectContaining({ uuid: shared.uuid })],
+    });
+    expect(heritageQuery.skip).toHaveBeenCalledWith(24);
+    expect(heritageQuery.take).toHaveBeenCalledWith(24);
+  });
+
+  it('selects one random match in the database', async () => {
+    heritageQuery.getOne.mockResolvedValue(shared);
+
+    await expect(service.getRandom({})).resolves.toMatchObject({
+      uuid: shared.uuid,
+    });
+    expect(heritageQuery.orderBy).toHaveBeenCalledWith('RANDOM()');
+    expect(heritageQuery.limit).toHaveBeenCalledWith(1);
   });
 });
