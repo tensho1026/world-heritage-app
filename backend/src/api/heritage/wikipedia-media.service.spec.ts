@@ -206,6 +206,31 @@ describe('WikipediaMediaService', () => {
     expect(service.getDisplayImageUrl(site)).toBeNull();
   });
 
+  it('clears an unrelated cached image when the replacement lookup fails', async () => {
+    jest
+      .spyOn(global, 'fetch')
+      .mockResolvedValueOnce({ ok: false } as Response);
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      nameEn: 'Tipasa',
+      wikipediaImageUrl: 'https://upload.wikimedia.org/world-heritage-logo.svg',
+      wikipediaPageUrl:
+        'https://en.wikipedia.org/wiki/List_of_World_Heritage_in_Danger',
+    });
+
+    await expect(service.fillMissingImage(site)).resolves.toMatchObject({
+      wikipediaImageUrl: null,
+      wikipediaPageUrl: null,
+      wikipediaImageAuthor: null,
+      wikipediaImageLicense: null,
+      wikipediaImageFetchedAt: expect.any(Date),
+    });
+    expect(repository.save).toHaveBeenCalledWith(site);
+  });
+
   it('replaces a cached image when its Wikipedia page is unrelated', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
