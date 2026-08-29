@@ -5,7 +5,7 @@ import App from './App'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 
 describe('App', () => {
-  it('renders the application heading', () => {
+  it('renders the application heading', async () => {
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     })
@@ -18,7 +18,9 @@ describe('App', () => {
     )
 
     expect(
-      screen.getByRole('heading', { name: '世界遺産を探す旅を、ここから。' }),
+      await screen.findByRole('heading', {
+        name: '世界遺産を探す旅を、ここから。',
+      }),
     ).toBeInTheDocument()
   })
 })

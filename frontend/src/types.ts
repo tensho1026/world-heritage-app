@@ -6,9 +6,13 @@ export type WorldHeritageSite = {
   uuid: string
   unescoId: string
   nameEn: string
+  nameJa: string | null
   shortDescriptionEn: string | null
+  shortDescriptionJa: string | null
   descriptionEn: string | null
+  descriptionJa: string | null
   justificationEn: string | null
+  justificationJa: string | null
   dateInscribed: number | null
   historicalPeriodStart?: number | null
   historicalPeriodEnd?: number | null
@@ -28,26 +32,32 @@ export type WorldHeritageSite = {
   }>
   danger: boolean
   dangerList: string | null
+  dangerListJa: string | null
   areaHectares: number | null
   culturalCriteria: string[]
   naturalCriteria: string[]
   criteriaText: string | null
+  criteriaTextJa: string | null
   category: HeritageCategory
   statesNames: string[]
+  statesNamesJa: string[]
   isoCodes: string[]
   region: string | null
+  regionJa: string | null
   latitude: number | null
   longitude: number | null
   mainImageUrl: string | null
   mainImageAuthor: string | null
   mainImageCopyright: string | null
   mainImageCaptionEn: string | null
+  mainImageCaptionJa: string | null
   mainImageSourceUrl: string | null
   mainImageLicense: string | null
   imageUrls: string[]
   mainVideoUrl: string | null
   mainVideoAuthor: string | null
   mainVideoCaptionEn: string | null
+  mainVideoCaptionJa: string | null
   videoUrls: string[]
   componentsCount: number
   isFeatured: boolean
@@ -179,6 +189,14 @@ export type DiscoverySite = {
   readCount: number
 }
 
+export type DiscoverySearchPage = {
+  items: DiscoverySite[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
 export type HeritageProgressItem = {
   name: string
   isoCode?: string
@@ -237,6 +255,7 @@ export type HeritageTheme = {
   nameEn: string
   descriptionJa: string
   count: number
+  representativeUuid: string | null
   mainImageUrl: string | null
 }
 

@@ -231,7 +231,7 @@ export function VocabularyCapture({
               onClick={() => translation.mutate(details)}
               type="button"
             >
-              {translation.isPending ? 'DeepLで翻訳中…' : '訳を見る'}
+              {translation.isPending ? '翻訳中…' : '訳を見る'}
             </button>
           )}
           {translation.isError && (

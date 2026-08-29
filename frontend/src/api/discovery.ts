@@ -1,6 +1,7 @@
 import type {
   DiscoveryFilterOptions,
   DiscoveryFilters,
+  DiscoverySearchPage,
   DiscoverySite,
   HeritageMapProgress,
   HeritageTimelineItem,
@@ -16,10 +17,17 @@ function params(filters: DiscoveryFilters) {
   )
 }
 
-export async function searchHeritage(filters: DiscoveryFilters) {
-  const { data } = await apiClient.get<DiscoverySite[]>('/discovery/sites', {
-    params: params(filters),
-  })
+export async function searchHeritage(
+  filters: DiscoveryFilters,
+  page = 1,
+  pageSize = 24,
+) {
+  const { data } = await apiClient.get<DiscoverySearchPage>(
+    '/discovery/sites',
+    {
+      params: { ...params(filters), page, pageSize },
+    },
+  )
   return data
 }
 

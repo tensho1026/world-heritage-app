@@ -11,6 +11,7 @@ import {
   Post,
   Put,
   Query,
+  Redirect,
 } from '@nestjs/common';
 import { ComprehensionLevel } from '../../database/entities/heritage-learning-state.entity';
 import { HeritageMode, HeritageService } from './heritage.service';
@@ -27,6 +28,13 @@ export class HeritageController {
   ) {
     const mode: HeritageMode = requestedMode === 'famous' ? 'famous' : 'all';
     return this.heritageService.getRandom(mode, exclude);
+  }
+
+  @Get(':id/image')
+  @Redirect()
+  @Header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800')
+  async getImage(@Param('id') id: string) {
+    return { url: await this.heritageService.getImageUrl(id), statusCode: 302 };
   }
 
   @Get(':id')

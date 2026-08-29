@@ -5,6 +5,11 @@ export const apiClient = axios.create({
   timeout: 20_000,
 })
 
+export function getHeritageImageUrl(id: string) {
+  const apiBaseUrl = String(apiClient.defaults.baseURL).replace(/\/$/, '')
+  return `${apiBaseUrl}/heritage/${encodeURIComponent(id)}/image`
+}
+
 export function getApiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message

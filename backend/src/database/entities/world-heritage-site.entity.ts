@@ -57,13 +57,25 @@ export class WorldHeritageSite {
   nameEn: string;
 
   @Column({ type: 'text', nullable: true })
+  nameJa: string | null;
+
+  @Column({ type: 'text', nullable: true })
   shortDescriptionEn: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  shortDescriptionJa: string | null;
 
   @Column({ type: 'text', nullable: true })
   descriptionEn: string | null;
 
   @Column({ type: 'text', nullable: true })
+  descriptionJa: string | null;
+
+  @Column({ type: 'text', nullable: true })
   justificationEn: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  justificationJa: string | null;
 
   @Index()
   @Column({ type: 'smallint', nullable: true })
@@ -106,6 +118,9 @@ export class WorldHeritageSite {
   @Column({ type: 'text', nullable: true })
   dangerList: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  dangerListJa: string | null;
+
   @Column({ type: 'double precision', nullable: true })
   areaHectares: number | null;
 
@@ -130,6 +145,9 @@ export class WorldHeritageSite {
   @Column({ type: 'text', nullable: true })
   criteriaText: string | null;
 
+  @Column({ type: 'text', nullable: true })
+  criteriaTextJa: string | null;
+
   @Index()
   @Column({
     type: 'enum',
@@ -153,11 +171,21 @@ export class WorldHeritageSite {
     array: true,
     default: () => "'{}'",
   })
+  statesNamesJa: string[];
+
+  @Column({
+    type: 'text',
+    array: true,
+    default: () => "'{}'",
+  })
   isoCodes: string[];
 
   @Index()
   @Column({ type: 'varchar', length: 100, nullable: true })
   region: string | null;
+
+  @Column({ type: 'varchar', length: 200, nullable: true })
+  regionJa: string | null;
 
   @Column({ type: 'varchar', length: 16, nullable: true })
   regionCode: string | null;
@@ -184,6 +212,9 @@ export class WorldHeritageSite {
   mainImageCaptionEn: string | null;
 
   @Column({ type: 'text', nullable: true })
+  mainImageCaptionJa: string | null;
+
+  @Column({ type: 'text', nullable: true })
   mainImageSourceUrl: string | null;
 
   @Column({ type: 'text', nullable: true })
@@ -204,6 +235,9 @@ export class WorldHeritageSite {
 
   @Column({ type: 'text', nullable: true })
   mainVideoCaptionEn: string | null;
+
+  @Column({ type: 'text', nullable: true })
+  mainVideoCaptionJa: string | null;
 
   @Column({
     type: 'text',
@@ -236,6 +270,15 @@ export class WorldHeritageSite {
 
   @Column({ type: 'timestamptz', nullable: true })
   wikipediaImageFetchedAt: Date | null;
+
+  @Column({ type: 'jsonb', default: () => "'{}'::jsonb" })
+  translationSourceHashes: Record<string, string>;
+
+  @Column({ type: 'varchar', length: 40, nullable: true })
+  translationProvider: string | null;
+
+  @Column({ type: 'timestamptz', nullable: true })
+  translatedAt: Date | null;
 
   @CreateDateColumn({ type: 'timestamptz' })
   createdAt: Date;

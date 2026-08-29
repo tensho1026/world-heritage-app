@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Get, Header, Query } from '@nestjs/common';
 import { DiscoveryFilters, DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -7,15 +7,16 @@ export class DiscoveryController {
 
   @Get('sites')
   search(@Query() filters: DiscoveryFilters) {
-    return this.discoveryService.search(filters);
+    return this.discoveryService.searchPage(filters);
   }
 
   @Get('map')
   map(@Query() filters: DiscoveryFilters) {
-    return this.discoveryService.search(filters, true);
+    return this.discoveryService.searchMap(filters);
   }
 
   @Get('filters')
+  @Header('Cache-Control', 'private, max-age=300')
   filters() {
     return this.discoveryService.getFilters();
   }
@@ -36,6 +37,7 @@ export class DiscoveryController {
   }
 
   @Get('themes')
+  @Header('Cache-Control', 'private, max-age=300')
   themes() {
     return this.discoveryService.getThemes();
   }

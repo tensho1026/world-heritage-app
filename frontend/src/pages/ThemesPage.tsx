@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { getThemes } from '../api/discovery'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
+import { HeritageImage } from '../components/HeritageImage'
 
 const groupLabels = {
   subject: '題材から探す',
@@ -53,11 +54,11 @@ export default function ThemesPage() {
                       to={`/explore?theme=${encodeURIComponent(theme.slug)}`}
                     >
                       <div className="relative h-32 bg-[#d9d0bd]">
-                        {theme.mainImageUrl && (
-                          <img
-                            alt=""
-                            className="size-full object-cover opacity-80 transition-transform group-hover:scale-105"
-                            loading="lazy"
+                        {theme.representativeUuid && (
+                          <HeritageImage
+                            fallbackClassName="size-full"
+                            imageClassName="size-full object-cover opacity-80 transition-transform group-hover:scale-105"
+                            siteId={theme.representativeUuid}
                             src={theme.mainImageUrl}
                           />
                         )}

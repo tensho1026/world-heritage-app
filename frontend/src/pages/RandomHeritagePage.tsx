@@ -13,7 +13,6 @@ import {
   updateFavorite,
   updateReadLater,
 } from '../api/heritage'
-import { translateArticle } from '../api/translations'
 import { getHighlights } from '../api/highlights'
 import { AppShell } from '../components/AppShell'
 import { PageError } from '../components/AsyncState'
@@ -21,7 +20,6 @@ import { PageError } from '../components/AsyncState'
 import { HighlightCapture } from '../components/HighlightCapture'
 import { HighlightsPanel } from '../components/HighlightsPanel'
 import { ReadingQuiz } from '../components/ReadingQuiz'
-import { ReadingLevelControls } from '../components/ReadingLevelControls'
 // import { ShadowingMode } from '../components/ShadowingMode'
 // import { DictationPractice } from '../components/DictationPractice'
 import { WritingChallenge } from '../components/WritingChallenge'
@@ -30,7 +28,6 @@ import {
   VocabularyCapture,
 } from '../components/VocabularyCapture'
 import { buildChatGptTranslationUrl } from '../lib/chatgpt'
-import { simplifyEnglish, type ReadingLevel } from '../lib/simplify-english'
 import type {
   ArticleTranslation,
   ArticleHighlight,
@@ -119,7 +116,6 @@ export default function RandomHeritagePage() {
   const [showTranslation, setShowTranslation] = useState(false)
   const [captureMode, setCaptureMode] = useState(false)
   const [highlightMode, setHighlightMode] = useState(false)
-  const [readingLevel, setReadingLevel] = useState<ReadingLevel>('original')
   const [imageFailed, setImageFailed] = useState(false)
   const [readNotice, setReadNotice] = useState<number | null>(null)
   const viewedIdRef = useRef<string | undefined>(undefined)
@@ -137,12 +133,6 @@ export default function RandomHeritagePage() {
     queryKey: ['learning-state', site?.uuid],
     queryFn: () => getLearningState(site!.uuid),
     enabled: Boolean(site),
-  })
-  const translationQuery = useQuery({
-    queryKey: ['article-translation', site?.uuid],
-    queryFn: () => translateArticle(site!.uuid),
-    enabled: false,
-    retry: false,
   })
   const highlightsQuery = useQuery({
     queryKey: ['highlights', site?.uuid],
@@ -223,7 +213,6 @@ export default function RandomHeritagePage() {
     setShowTranslation(false)
     setCaptureMode(false)
     setHighlightMode(false)
-    setReadingLevel('original')
     setImageFailed(false)
     setReadNotice(null)
     if (routeId) {
@@ -234,13 +223,8 @@ export default function RandomHeritagePage() {
     setRandomSequence((value) => value + 1)
   }
 
-  async function toggleTranslation() {
-    if (showTranslation) return setShowTranslation(false)
-    setReadingLevel('original')
-    const result = translationQuery.data
-      ? { data: translationQuery.data }
-      : await translationQuery.refetch()
-    if (result.data) setShowTranslation(true)
+  function toggleTranslation() {
+    setShowTranslation((value) => !value)
   }
 
   if (heritageQuery.isPending) {
@@ -262,27 +246,26 @@ export default function RandomHeritagePage() {
   }
 
   const learning = learningQuery.data
-  const translation = translationQuery.data
-  const imageUrl = site.mainImageUrl ?? site.wikipediaImageUrl
-  const imageSourceUrl = site.mainImageSourceUrl ?? site.wikipediaPageUrl
+  const translation: ArticleTranslation = {
+    nameEn: site.nameJa ?? undefined,
+    shortDescriptionEn: site.shortDescriptionJa ?? undefined,
+    descriptionEn: site.descriptionJa ?? undefined,
+    justificationEn: site.justificationJa ?? undefined,
+    criteriaText: site.criteriaTextJa ?? undefined,
+    mainImageCaptionEn: site.mainImageCaptionJa ?? undefined,
+  }
+  const imageUrl = site.wikipediaImageUrl ?? site.mainImageUrl
+  const imageSourceUrl = site.wikipediaImageUrl
+    ? site.wikipediaPageUrl
+    : site.mainImageSourceUrl
   const criteria = [...site.culturalCriteria, ...site.naturalCriteria]
   const highlights = highlightsQuery.data ?? []
   const highlightsFor = (sectionKey: string) =>
-    readingLevel === 'original'
-      ? highlights.filter((highlight) => highlight.sectionKey === sectionKey)
-      : []
+    highlights.filter((highlight) => highlight.sectionKey === sectionKey)
   const displayShortDescription = site.shortDescriptionEn
-    ? simplifyEnglish(site.shortDescriptionEn, readingLevel)
-    : null
   const displayDescription = site.descriptionEn
-    ? simplifyEnglish(site.descriptionEn, readingLevel)
-    : null
   const displayJustification = site.justificationEn
-    ? simplifyEnglish(site.justificationEn, readingLevel)
-    : null
   const displayCriteria = site.criteriaText
-    ? simplifyEnglish(site.criteriaText, readingLevel)
-    : null
   // 音声機能を再開する場合は、以下の speechText と表示箇所を戻す。
   // const speechText = [
   //   site.nameEn,
@@ -304,6 +287,8 @@ export default function RandomHeritagePage() {
               {imageUrl && !imageFailed ? (
                 <img
                   className="size-full object-cover"
+                  decoding="async"
+                  fetchPriority="high"
                   src={imageUrl}
                   alt={site.mainImageCaptionEn ?? site.nameEn}
                   onError={() => setImageFailed(true)}
@@ -355,7 +340,13 @@ export default function RandomHeritagePage() {
               </span>
             </div>
             <p className="mt-10 text-[0.68rem] font-extrabold tracking-[0.17em] text-[#b85635] uppercase">
-              {site.region ?? 'WORLD'} · {site.statesNames.join(' / ')}
+              {showTranslation && site.regionJa
+                ? site.regionJa
+                : (site.region ?? 'WORLD')}{' '}
+              ·{' '}
+              {showTranslation && site.statesNamesJa.length
+                ? site.statesNamesJa.join(' / ')
+                : site.statesNames.join(' / ')}
             </p>
             <HighlightCapture
               enabled={highlightMode}
@@ -415,7 +406,6 @@ export default function RandomHeritagePage() {
           learning={learning}
           site={site}
           showTranslation={showTranslation}
-          translating={translationQuery.isFetching}
           onCapture={() => {
             setCaptureMode((value) => !value)
             setHighlightMode(false)
@@ -436,12 +426,6 @@ export default function RandomHeritagePage() {
           }
           onTranslate={toggleTranslation}
         />
-        {translationQuery.isError && (
-          <p className="mt-3 text-xs text-[#b85635]">
-            {getApiErrorMessage(translationQuery.error)}
-          </p>
-        )}
-
         <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-[clamp(50px,8vw,120px)] py-16 max-[900px]:grid-cols-1">
           <article id="about-site">
             <p className="text-[0.65rem] font-extrabold tracking-[0.2em] text-[#b85635] uppercase">
@@ -450,16 +434,6 @@ export default function RandomHeritagePage() {
             <h2 className="mt-4 font-serif text-[clamp(2rem,3vw,3rem)]">
               Read the story in English.
             </h2>
-            <ReadingLevelControls
-              level={readingLevel}
-              onChange={(level) => {
-                setReadingLevel(level)
-                setShowTranslation(false)
-                setCaptureMode(false)
-                setHighlightMode(false)
-              }}
-              site={site}
-            />
             {/* 音声読み上げ・シャドーイング・ディクテーションは現在無効。
             <div className="mt-7">
               <SpeechControls text={speechText} />
@@ -468,31 +442,17 @@ export default function RandomHeritagePage() {
             <DictationPractice
               heritageSiteId={site.uuid}
               text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
-              onLoadTranslation={async () => {
-                const result = translationQuery.data
-                  ? { data: translationQuery.data }
-                  : await translationQuery.refetch()
-                return (
-                  result.data?.shortDescriptionEn ??
-                  result.data?.descriptionEn ??
-                  undefined
-                )
-              }}
+              onLoadTranslation={async () =>
+                site.shortDescriptionJa ?? site.descriptionJa ?? undefined
+              }
             />
             */}
             <WritingChallenge
               heritageSiteId={site.uuid}
               text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
-              onLoadTranslation={async () => {
-                const result = translationQuery.data
-                  ? { data: translationQuery.data }
-                  : await translationQuery.refetch()
-                return (
-                  result.data?.shortDescriptionEn ??
-                  result.data?.descriptionEn ??
-                  undefined
-                )
-              }}
+              onLoadTranslation={async () =>
+                site.shortDescriptionJa ?? site.descriptionJa ?? undefined
+              }
             />
             <HighlightCapture
               enabled={highlightMode}
@@ -560,17 +520,7 @@ export default function RandomHeritagePage() {
 
         <AdditionalMedia site={site} />
 
-        {(site.mainVideoUrl || site.videoUrls[0]) && (
-          <section className="border-t border-[#18352f]/15 py-12">
-            <h2 className="font-serif text-2xl">Related video</h2>
-            <video
-              className="mt-5 max-h-[620px] w-full bg-black"
-              controls
-              preload="metadata"
-              src={site.mainVideoUrl ?? site.videoUrls[0]}
-            />
-          </section>
-        )}
+        <HeritageVideo site={site} />
 
         <ReadingQuiz heritageName={site.nameEn} heritageSiteId={site.uuid} />
 
@@ -751,7 +701,6 @@ function ActionBar({
   captureMode,
   highlightMode,
   showTranslation,
-  translating,
   onCapture,
   onHighlight,
   onTranslate,
@@ -763,7 +712,6 @@ function ActionBar({
   captureMode: boolean
   highlightMode: boolean
   showTranslation: boolean
-  translating: boolean
   onCapture: () => void
   onHighlight: () => void
   onTranslate: () => void
@@ -776,15 +724,10 @@ function ActionBar({
       <div className="flex flex-wrap items-center gap-2">
         <button
           className={`${button} border-[#18352f] bg-[#18352f] text-white`}
-          disabled={translating}
           onClick={onTranslate}
           type="button"
         >
-          {translating
-            ? 'DeepLで翻訳中…'
-            : showTranslation
-              ? '英語だけに戻す'
-              : '日本語訳を表示'}
+          {showTranslation ? '英語だけに戻す' : '日本語訳を表示'}
         </button>
         <button
           className={`${button} ${highlightMode ? 'border-[#e7c778] bg-[#e7c778]' : 'border-[#18352f]/25'}`}
@@ -962,7 +905,9 @@ function ReaderSidebar({
           </p>
           {site.dangerList && (
             <p className="mt-2 text-xs leading-5 text-[#18352f]/60">
-              {site.dangerList}
+              {showTranslation && site.dangerListJa
+                ? site.dangerListJa
+                : site.dangerList}
             </p>
           )}
         </div>
@@ -1067,6 +1012,51 @@ function AdditionalMedia({ site }: { site: WorldHeritageSite }) {
   )
 }
 
+function HeritageVideo({ site }: { site: WorldHeritageSite }) {
+  const videoUrl = site.mainVideoUrl ?? site.videoUrls[0]
+  if (!videoUrl) return null
+  const youtubeEmbedUrl = trustedYouTubeEmbedUrl(videoUrl)
+
+  return (
+    <section className="border-t border-[#18352f]/15 py-12">
+      <h2 className="font-serif text-2xl">Related video</h2>
+      {youtubeEmbedUrl ? (
+        <iframe
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+          className="mt-5 aspect-video w-full bg-black"
+          loading="lazy"
+          referrerPolicy="strict-origin-when-cross-origin"
+          src={youtubeEmbedUrl}
+          title={`${site.nameEn}の関連動画`}
+        />
+      ) : (
+        <video
+          className="mt-5 max-h-[620px] w-full bg-black"
+          controls
+          preload="metadata"
+          src={videoUrl}
+        />
+      )}
+    </section>
+  )
+}
+
+function trustedYouTubeEmbedUrl(value: string) {
+  try {
+    const url = new URL(value)
+    const trustedHost =
+      url.hostname === 'www.youtube-nocookie.com' ||
+      url.hostname === 'www.youtube.com' ||
+      url.hostname === 'youtube.com'
+    return trustedHost && url.pathname.startsWith('/embed/')
+      ? url.toString()
+      : null
+  } catch {
+    return null
+  }
+}
+
 function MediaImage({ url, siteName }: { url: string; siteName: string }) {
   const [failed, setFailed] = useState(false)
   if (failed) return null
@@ -1092,7 +1082,7 @@ function JapaneseTranslation({ text }: { text: string }) {
   return (
     <div className="mt-4 border-l-2 border-[#b85635]/45 bg-white/45 px-5 py-4">
       <p className="mb-2 text-[0.58rem] font-bold tracking-[0.14em] text-[#b85635]">
-        DEEPL 日本語訳
+        日本語訳
       </p>
       {paragraphs(text).map((paragraph, index) => (
         <p className="mt-2 text-sm leading-7 text-[#18352f]/72" key={index}>

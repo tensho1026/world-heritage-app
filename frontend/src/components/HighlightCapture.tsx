@@ -3,10 +3,7 @@ import type { ReactNode } from 'react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '../api/client'
 import { saveHighlight } from '../api/highlights'
-import {
-  buildGrammarCheckUrl,
-  buildSentenceRewriteUrl,
-} from '../lib/learning-tools'
+import { buildGrammarCheckUrl } from '../lib/learning-tools'
 
 type HighlightSelection = {
   sectionKey: string
@@ -189,22 +186,6 @@ export function HighlightCapture({
             >
               文法・構文を確認 ↗
             </a>
-            {(['B1', 'A2'] as const).map((level) => (
-              <a
-                className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
-                href={buildSentenceRewriteUrl(
-                  selection.selectedText,
-                  context,
-                  heritageName,
-                  level,
-                )}
-                key={level}
-                rel="noreferrer"
-                target="_blank"
-              >
-                {level}に言い換え ↗
-              </a>
-            ))}
           </div>
           {mutation.isError && (
             <p className="mt-3 text-xs text-[#b85635]">

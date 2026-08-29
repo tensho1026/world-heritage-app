@@ -126,8 +126,6 @@ test('renders a random heritage reader with learning actions', async ({
   await expect(
     page.getByText(/アプリ内の語彙置換による学習用参考文/),
   ).toBeVisible()
-  await page.getByRole('button', { name: /一文ずつ聞いて声に出す/ }).click()
-  await expect(page.getByRole('button', { name: '● 録音を開始' })).toBeVisible()
   const aiLink = page.getByRole('link', { name: 'AIで全文翻訳 ↗' })
   await expect(aiLink).toHaveAttribute('href', /chatgpt\.com\/\?prompt=/)
 })
@@ -265,25 +263,31 @@ test('searches World Heritage sites with combined filters', async ({
   )
   await page.route('**/api/discovery/sites**', (route) =>
     route.fulfill({
-      json: [
-        {
-          uuid: heritage.uuid,
-          nameEn: 'Palace and Park of Versailles',
-          shortDescriptionEn: 'A royal residence.',
-          statesNames: ['France'],
-          region: 'Europe and North America',
-          category: 'Cultural',
-          dateInscribed: 1979,
-          latitude: 48.8,
-          longitude: 2.1,
-          isFeatured: true,
-          mainImageUrl: null,
-          comprehensionLevel: null,
-          isFavorite: false,
-          isReadLater: false,
-          readCount: 0,
-        },
-      ],
+      json: {
+        items: [
+          {
+            uuid: heritage.uuid,
+            nameEn: 'Palace and Park of Versailles',
+            shortDescriptionEn: 'A royal residence.',
+            statesNames: ['France'],
+            region: 'Europe and North America',
+            category: 'Cultural',
+            dateInscribed: 1979,
+            latitude: 48.8,
+            longitude: 2.1,
+            isFeatured: true,
+            mainImageUrl: null,
+            comprehensionLevel: null,
+            isFavorite: false,
+            isReadLater: false,
+            readCount: 0,
+          },
+        ],
+        total: 1,
+        page: 1,
+        pageSize: 24,
+        totalPages: 1,
+      },
     }),
   )
   await page.goto('/explore')
@@ -299,6 +303,12 @@ test('searches World Heritage sites with combined filters', async ({
 test('browses an illustrated theme and opens a random matching site', async ({
   page,
 }) => {
+  await page.route('https://example.com/natural.jpg', (route) =>
+    route.fulfill({
+      contentType: 'image/svg+xml',
+      body: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16"/>',
+    }),
+  )
   await page.route(/\/api\/discovery\/themes$/, (route) =>
     route.fulfill({
       json: [
@@ -309,6 +319,7 @@ test('browses an illustrated theme and opens a random matching site', async ({
           nameEn: 'Natural Heritage',
           descriptionJa: '自然を守る世界遺産',
           count: 12,
+          representativeUuid: heritage.uuid,
           mainImageUrl: 'https://example.com/natural.jpg',
         },
       ],
@@ -326,7 +337,15 @@ test('browses an illustrated theme and opens a random matching site', async ({
     }),
   )
   await page.route('**/api/discovery/sites**', (route) =>
-    route.fulfill({ json: [{ ...heritage, readCount: 0 }] }),
+    route.fulfill({
+      json: {
+        items: [{ ...heritage, readCount: 0 }],
+        total: 1,
+        page: 1,
+        pageSize: 24,
+        totalPages: 1,
+      },
+    }),
   )
   await page.route('**/api/discovery/random**', (route) =>
     route.fulfill({ json: { ...heritage, readCount: 0 } }),
@@ -545,9 +564,7 @@ test('creates a self-defined monthly challenge', async ({ page }) => {
   await expect(page.getByText('達成まであと 5件')).toBeVisible()
 })
 
-test('answers dictation and writing exercises from a heritage article', async ({
-  page,
-}) => {
+test('answers a writing exercise from a heritage article', async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', (error) => pageErrors.push(error.message))
   await page.route('**/api/heritage/random**', (route) =>
@@ -586,15 +603,6 @@ test('answers dictation and writing exercises from a heritage article', async ({
   await page.goto('/random-heritage')
   expect(pageErrors).toEqual([])
   await expect(page.locator('body')).toContainText(heritage.nameEn)
-
-  await page
-    .getByRole('button', { name: /音だけを頼りに一文を書き取る/ })
-    .click()
-  await page
-    .getByLabel('聞こえた英文')
-    .fill('The Bamiyan Valley contains important historic remains.')
-  await page.getByRole('button', { name: '答え合わせ' }).click()
-  await expect(page.getByText('一致率 100%')).toBeVisible()
 
   await page.getByRole('button', { name: /日本語から英文を組み立てる/ }).click()
   await expect(page.getByText(/バーミヤン渓谷/)).toBeVisible()

@@ -37,6 +37,7 @@ describe('HeritageService random selection', () => {
     };
     const wikipediaMediaService = {
       fillMissingImage: jest.fn(async (value: WorldHeritageSite) => value),
+      getWikipediaDisplayImageUrl: jest.fn(() => null),
     };
     const service = new HeritageService(
       heritageRepository as unknown as Repository<WorldHeritageSite>,

@@ -24,6 +24,6 @@ import { ComprehensionHistory } from '../../database/entities/comprehension-hist
   ],
   controllers: [HeritageController, LibraryController],
   providers: [HeritageService, WikipediaMediaService],
-  exports: [HeritageService],
+  exports: [HeritageService, WikipediaMediaService],
 })
 export class HeritageModule {}

@@ -34,13 +34,15 @@ export default function ExplorePage() {
   }
   const [draft, setDraft] = useState<DiscoveryFilters>(initial)
   const [applied, setApplied] = useState<DiscoveryFilters>(initial)
+  const [page, setPage] = useState(1)
   const filterOptions = useQuery({
     queryKey: ['discovery-filters'],
     queryFn: getDiscoveryFilters,
   })
   const sites = useQuery({
-    queryKey: ['discovery-sites', applied],
-    queryFn: () => searchHeritage(applied),
+    queryKey: ['discovery-sites', applied, page],
+    queryFn: () => searchHeritage(applied, page),
+    placeholderData: (previous) => previous,
   })
   const [randomPending, setRandomPending] = useState(false)
 
@@ -56,6 +58,7 @@ export default function ExplorePage() {
 
   function apply() {
     setApplied(draft)
+    setPage(1)
     const params = new URLSearchParams()
     Object.entries(draft).forEach(([key, value]) => {
       if (value) params.set(key, String(value))
@@ -66,6 +69,7 @@ export default function ExplorePage() {
   function reset() {
     setDraft({})
     setApplied({})
+    setPage(1)
     setSearchParams({})
   }
 
@@ -116,19 +120,19 @@ export default function ExplorePage() {
         {sites.data && (
           <>
             <div className="mt-8 flex items-center justify-between">
-              <h2 className="font-serif text-2xl">{sites.data.length}件</h2>
+              <h2 className="font-serif text-2xl">{sites.data.total}件</h2>
               <button
                 className="border border-[#b85635] px-4 py-2 text-xs font-bold text-[#b85635] disabled:opacity-50"
-                disabled={!sites.data.length || randomPending}
+                disabled={!sites.data.total || randomPending}
                 onClick={() => void openRandomResult()}
                 type="button"
               >
                 {randomPending ? '選んでいます…' : 'この条件からランダムに読む'}
               </button>
             </div>
-            {sites.data.length ? (
+            {sites.data.items.length ? (
               <div className="mt-5 grid grid-cols-2 gap-5 max-[800px]:grid-cols-1">
-                {sites.data.map((site) => (
+                {sites.data.items.map((site) => (
                   <DiscoveryCard key={site.uuid} site={site} />
                 ))}
               </div>
@@ -136,6 +140,32 @@ export default function ExplorePage() {
               <p className="mt-12 text-center text-sm text-[#18352f]/50">
                 条件に一致する世界遺産がありません。
               </p>
+            )}
+            {sites.data.totalPages > 1 && (
+              <nav
+                aria-label="検索結果のページ"
+                className="mt-8 flex items-center justify-center gap-4"
+              >
+                <button
+                  className="border border-[#18352f]/25 px-4 py-2 text-xs font-bold disabled:opacity-40"
+                  disabled={page <= 1 || sites.isFetching}
+                  onClick={() => setPage((current) => current - 1)}
+                  type="button"
+                >
+                  ← 前へ
+                </button>
+                <span className="text-xs font-bold text-[#18352f]/60">
+                  {page} / {sites.data.totalPages}
+                </span>
+                <button
+                  className="border border-[#18352f]/25 px-4 py-2 text-xs font-bold disabled:opacity-40"
+                  disabled={page >= sites.data.totalPages || sites.isFetching}
+                  onClick={() => setPage((current) => current + 1)}
+                  type="button"
+                >
+                  次へ →
+                </button>
+              </nav>
             )}
           </>
         )}

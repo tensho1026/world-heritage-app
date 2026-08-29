@@ -6,23 +6,23 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
-import { DeepLService } from './deepl.service';
+import { LibreTranslateService } from './libretranslate.service';
 
-const ARTICLE_FIELDS = [
-  'nameEn',
-  'shortDescriptionEn',
-  'descriptionEn',
-  'justificationEn',
-  'criteriaText',
-  'mainImageCaptionEn',
-] as const;
+const ARTICLE_FIELDS = {
+  nameEn: 'nameJa',
+  shortDescriptionEn: 'shortDescriptionJa',
+  descriptionEn: 'descriptionJa',
+  justificationEn: 'justificationJa',
+  criteriaText: 'criteriaTextJa',
+  mainImageCaptionEn: 'mainImageCaptionJa',
+} as const;
 
 @Injectable()
 export class TranslationService {
   constructor(
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
-    private readonly deepLService: DeepLService,
+    private readonly libreTranslateService: LibreTranslateService,
   ) {}
 
   async translateArticle(heritageSiteId: string) {
@@ -32,15 +32,15 @@ export class TranslationService {
     if (!site)
       throw new NotFoundException('World Heritage site was not found.');
 
-    const presentFields = ARTICLE_FIELDS.filter(
-      (field) => typeof site[field] === 'string' && site[field]!.trim().length,
-    );
-    const translations = await this.deepLService.translateTexts(
-      presentFields.map((field) => site[field] as string),
-    );
-
     return Object.fromEntries(
-      presentFields.map((field, index) => [field, translations[index]]),
+      Object.entries(ARTICLE_FIELDS).flatMap(
+        ([englishField, japaneseField]) => {
+          const translation = site[japaneseField as keyof WorldHeritageSite];
+          return typeof translation === 'string' && translation.trim()
+            ? [[englishField, translation]]
+            : [];
+        },
+      ),
     );
   }
 
@@ -59,10 +59,9 @@ export class TranslationService {
       throw new BadRequestException('The source sentence is too long.');
     }
 
-    const [translationJa] = await this.deepLService.translateTexts(
-      [normalizedExpression],
-      sourceSentenceEn.trim(),
-    );
+    const [translationJa] = await this.libreTranslateService.translateTexts([
+      normalizedExpression,
+    ]);
     return { translationJa };
   }
 }
