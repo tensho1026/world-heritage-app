@@ -31,6 +31,8 @@ cp .env.example .env
 - `DEEPL_API_KEY`: DeepL APIキー
 - `DEEPL_API_BASE_URL`: Developer/Freeでは `https://api-free.deepl.com`
 - `WIKIMEDIA_USER_AGENT`: 連絡先を含むWikimedia向けUser-Agent
+- `LIBRETRANSLATE_URL`: 世界遺産記事を事前翻訳するLibreTranslateのURL
+- `LIBRETRANSLATE_API_KEY`: LibreTranslate側でAPIキーを要求する場合のみ設定
 
 ChatGPTへの「AIで全文翻訳」は利用者自身のChatGPTをプロンプト付きで開くため、OpenAI APIキーは不要です。
 
@@ -51,7 +53,16 @@ npm run db:check
 
 # UNESCOデータを初回取込・更新する場合
 curl -X POST http://localhost:3000/heritage-import
+
+# LibreTranslateを起動した状態で、未翻訳・原文変更分をDBへ保存
+cd backend
+npm run translate:heritages
 ```
+
+記事の日本語訳は表示時に外部APIへ送信せず、DBの保存済み訳を使用します。
+`translate:heritages` は1件ごとに保存されるため中断後も再開でき、UNESCOの
+英語原文が変わった項目だけを再翻訳します。単語・選択範囲の翻訳用DeepL連携は
+引き続き利用できます。
 
 ## 開発サーバー
 

@@ -8,14 +8,14 @@ import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { DeepLService } from './deepl.service';
 
-const ARTICLE_FIELDS = [
-  'nameEn',
-  'shortDescriptionEn',
-  'descriptionEn',
-  'justificationEn',
-  'criteriaText',
-  'mainImageCaptionEn',
-] as const;
+const ARTICLE_FIELDS = {
+  nameEn: 'nameJa',
+  shortDescriptionEn: 'shortDescriptionJa',
+  descriptionEn: 'descriptionJa',
+  justificationEn: 'justificationJa',
+  criteriaText: 'criteriaTextJa',
+  mainImageCaptionEn: 'mainImageCaptionJa',
+} as const;
 
 @Injectable()
 export class TranslationService {
@@ -32,15 +32,15 @@ export class TranslationService {
     if (!site)
       throw new NotFoundException('World Heritage site was not found.');
 
-    const presentFields = ARTICLE_FIELDS.filter(
-      (field) => typeof site[field] === 'string' && site[field]!.trim().length,
-    );
-    const translations = await this.deepLService.translateTexts(
-      presentFields.map((field) => site[field] as string),
-    );
-
     return Object.fromEntries(
-      presentFields.map((field, index) => [field, translations[index]]),
+      Object.entries(ARTICLE_FIELDS).flatMap(
+        ([englishField, japaneseField]) => {
+          const translation = site[japaneseField as keyof WorldHeritageSite];
+          return typeof translation === 'string' && translation.trim()
+            ? [[englishField, translation]]
+            : [];
+        },
+      ),
     );
   }
 

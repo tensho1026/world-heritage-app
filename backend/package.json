@@ -16,6 +16,7 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "db:check": "ts-node -r tsconfig-paths/register scripts/check-db.ts",
+    "translate:heritages": "ts-node -r tsconfig-paths/register scripts/translate-heritages.ts",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/database/data-source.ts",
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
   },
