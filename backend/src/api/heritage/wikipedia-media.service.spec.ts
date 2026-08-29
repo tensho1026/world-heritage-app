@@ -95,6 +95,19 @@ describe('WikipediaMediaService', () => {
     );
   });
 
+  it('rejects a lookalike host when validating a Wikipedia source page', () => {
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      wikipediaPageUrl: 'https://evilwikipedia.org/wiki/Bamiyan_Valley',
+      wikipediaImageUrl: 'https://upload.wikimedia.org/image.jpg',
+    });
+
+    expect(service.getWikipediaDisplayImageUrl(site)).toBeNull();
+  });
+
   it('stores a Wikipedia image and its source page as fallback', async () => {
     jest
       .spyOn(global, 'fetch')

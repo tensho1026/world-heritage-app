@@ -202,7 +202,10 @@ export class WikipediaMediaService {
 
     try {
       const parsed = new URL(url);
-      if (!parsed.hostname.endsWith('wikipedia.org')) return null;
+      const isWikipediaHost =
+        parsed.hostname === 'wikipedia.org' ||
+        parsed.hostname.endsWith('.wikipedia.org');
+      if (!isWikipediaHost) return null;
       const match = parsed.pathname.match(/^\/wiki\/(.+)$/);
       return match ? decodeURIComponent(match[1]).replace(/_/g, ' ') : null;
     } catch {
