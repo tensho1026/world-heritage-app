@@ -25,6 +25,7 @@ type WikipediaResponse = {
 };
 
 const FAILED_FETCH_RETRY_MS = 24 * 60 * 60 * 1_000;
+const DISPLAY_IMAGE_WIDTH = 960;
 const GENERIC_WIKIPEDIA_TITLES = new Set([
   'unesco',
   'world heritage',
@@ -75,14 +76,17 @@ export class WikipediaMediaService {
   ) {}
 
   async fillMissingImage(site: WorldHeritageSite): Promise<WorldHeritageSite> {
+    const hasStoredWikipediaImage = Boolean(site.wikipediaImageUrl);
     if (
       this.hasRelevantWikipediaImage(site) ||
       this.isUsableMainImageUrl(site.mainImageUrl) ||
-      (!site.wikipediaImageUrl &&
+      (!hasStoredWikipediaImage &&
         this.wasRecentlyFetched(site.wikipediaImageFetchedAt))
     ) {
       return site;
     }
+
+    if (hasStoredWikipediaImage) this.clearWikipediaImage(site);
 
     const apiUrl =
       this.configService.get<string>('WIKIPEDIA_API_URL') ??
@@ -113,6 +117,7 @@ export class WikipediaMediaService {
       });
 
       if (!response.ok) {
+        await this.markImageLookupFailed(site);
         return site;
       }
 
@@ -152,6 +157,7 @@ export class WikipediaMediaService {
       await this.heritageRepository.save(site);
     } catch {
       // Image enrichment is best-effort and must never block reading.
+      await this.markImageLookupFailed(site);
     }
 
     return site;
@@ -161,7 +167,13 @@ export class WikipediaMediaService {
     if (this.isUsableMainImageUrl(site.mainImageUrl)) {
       return site.mainImageUrl;
     }
-    return this.hasRelevantWikipediaImage(site) ? site.wikipediaImageUrl : null;
+    return this.getWikipediaDisplayImageUrl(site);
+  }
+
+  getWikipediaDisplayImageUrl(site: WorldHeritageSite) {
+    return this.hasRelevantWikipediaImage(site)
+      ? this.toWikimediaThumbnail(site.wikipediaImageUrl!)
+      : null;
   }
 
   private hasRelevantWikipediaImage(site: WorldHeritageSite) {
@@ -170,6 +182,19 @@ export class WikipediaMediaService {
     return (
       title !== null && this.wikipediaTitleRelevance(site.nameEn, title) > 0
     );
+  }
+
+  private clearWikipediaImage(site: WorldHeritageSite) {
+    site.wikipediaImageUrl = null;
+    site.wikipediaPageUrl = null;
+    site.wikipediaImageAuthor = null;
+    site.wikipediaImageLicense = null;
+  }
+
+  private async markImageLookupFailed(site: WorldHeritageSite) {
+    this.clearWikipediaImage(site);
+    site.wikipediaImageFetchedAt = new Date();
+    await this.heritageRepository.save(site).catch(() => undefined);
   }
 
   private wikipediaTitleFromUrl(url: string | null) {
@@ -289,6 +314,30 @@ export class WikipediaMediaService {
       );
     } catch {
       return false;
+    }
+  }
+
+  private toWikimediaThumbnail(url: string) {
+    try {
+      const parsed = new URL(url);
+      const parts = parsed.pathname.split('/').filter(Boolean);
+      if (
+        parsed.hostname !== 'upload.wikimedia.org' ||
+        parts[0] !== 'wikipedia' ||
+        parts[1] !== 'commons' ||
+        parts[2] === 'thumb' ||
+        parts.length < 5
+      ) {
+        return url;
+      }
+      const [firstHash, secondHash, ...fileParts] = parts.slice(2);
+      const filename = fileParts.join('/');
+      const thumbnailName = `${DISPLAY_IMAGE_WIDTH}px-${filename}${filename.toLowerCase().endsWith('.svg') ? '.png' : ''}`;
+      parsed.pathname = `/wikipedia/commons/thumb/${firstHash}/${secondHash}/${filename}/${thumbnailName}`;
+      parsed.search = '';
+      return parsed.toString();
+    } catch {
+      return url;
     }
   }
 
