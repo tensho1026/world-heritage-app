@@ -14,6 +14,7 @@ export function HeritageCard({ site }: { site: SiteSummary }) {
             fallbackClassName="grid size-full place-items-center bg-[linear-gradient(135deg,#d9d0bd,#9db0a3)] text-4xl text-white/70"
             imageClassName="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
             siteId={site.uuid}
+            src={site.mainImageUrl}
           />
         </div>
         <div className="p-5">

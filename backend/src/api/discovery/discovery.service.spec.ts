@@ -6,6 +6,7 @@ import {
   WorldHeritageSite,
 } from '../../database/entities/world-heritage-site.entity';
 import { DiscoveryService } from './discovery.service';
+import { WikipediaMediaService } from '../heritage/wikipedia-media.service';
 
 describe('DiscoveryService progress and timeline', () => {
   const heritageQuery = {
@@ -35,10 +36,17 @@ describe('DiscoveryService progress and timeline', () => {
   };
   readQuery.select.mockReturnValue(readQuery);
   const readRepository = { createQueryBuilder: jest.fn(() => readQuery) };
+  const wikipediaMediaService = {
+    getDisplayImageUrl: jest.fn(
+      (site: WorldHeritageSite) =>
+        site.mainImageUrl ?? site.wikipediaImageUrl ?? null,
+    ),
+  };
   const service = new DiscoveryService(
     heritageRepository as unknown as Repository<WorldHeritageSite>,
     learningRepository as unknown as Repository<HeritageLearningState>,
     readRepository as unknown as Repository<HeritageRead>,
+    wikipediaMediaService as unknown as WikipediaMediaService,
   );
   const shared = {
     uuid: 'a1d7e93d-f865-53f4-a76b-0c7895273013',

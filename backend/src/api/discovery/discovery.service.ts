@@ -11,6 +11,7 @@ import {
   WorldHeritageSite,
 } from '../../database/entities/world-heritage-site.entity';
 import { heritageThemes, ThemeDefinition } from './themes';
+import { WikipediaMediaService } from '../heritage/wikipedia-media.service';
 
 export type DiscoveryFilters = {
   q?: string;
@@ -50,6 +51,7 @@ export class DiscoveryService {
     private readonly learningRepository: Repository<HeritageLearningState>,
     @InjectRepository(HeritageRead)
     private readonly readRepository: Repository<HeritageRead>,
+    private readonly wikipediaMediaService: WikipediaMediaService,
   ) {}
 
   async searchPage(filters: DiscoveryFilters) {
@@ -66,6 +68,9 @@ export class DiscoveryService {
       'site.category',
       'site.dateInscribed',
       'site.isFeatured',
+      'site.mainImageUrl',
+      'site.wikipediaImageUrl',
+      'site.wikipediaPageUrl',
     ]);
     const [sites, total] = await query
       .orderBy('site.isFeatured', 'DESC')
@@ -259,10 +264,9 @@ export class DiscoveryService {
           ...theme,
           count,
           representativeUuid: representative?.uuid ?? null,
-          mainImageUrl:
-            representative?.mainImageUrl ??
-            representative?.wikipediaImageUrl ??
-            null,
+          mainImageUrl: representative
+            ? this.wikipediaMediaService.getDisplayImageUrl(representative)
+            : null,
         };
       }),
     );
@@ -551,7 +555,7 @@ export class DiscoveryService {
       latitude: site.latitude,
       longitude: site.longitude,
       isFeatured: site.isFeatured,
-      mainImageUrl: site.mainImageUrl ?? site.wikipediaImageUrl,
+      mainImageUrl: this.wikipediaMediaService.getDisplayImageUrl(site),
       comprehensionLevel: stateMap.get(site.uuid)?.comprehensionLevel ?? null,
       isFavorite: stateMap.get(site.uuid)?.isFavorite ?? false,
       isReadLater: stateMap.get(site.uuid)?.isReadLater ?? false,

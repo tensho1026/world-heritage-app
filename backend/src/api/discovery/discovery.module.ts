@@ -5,9 +5,11 @@ import { HeritageRead } from '../../database/entities/heritage-read.entity';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { DiscoveryController } from './discovery.controller';
 import { DiscoveryService } from './discovery.service';
+import { HeritageModule } from '../heritage/heritage.module';
 
 @Module({
   imports: [
+    HeritageModule,
     TypeOrmModule.forFeature([
       WorldHeritageSite,
       HeritageLearningState,

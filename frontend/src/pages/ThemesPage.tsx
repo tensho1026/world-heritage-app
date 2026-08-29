@@ -59,6 +59,7 @@ export default function ThemesPage() {
                             fallbackClassName="size-full"
                             imageClassName="size-full object-cover opacity-80 transition-transform group-hover:scale-105"
                             siteId={theme.representativeUuid}
+                            src={theme.mainImageUrl}
                           />
                         )}
                         <span className="absolute bottom-2 left-3 font-serif text-4xl text-white drop-shadow">

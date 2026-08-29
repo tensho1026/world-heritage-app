@@ -349,7 +349,7 @@ export class HeritageService {
       category: site.category,
       statesNames: site.statesNames,
       region: site.region,
-      mainImageUrl: site.mainImageUrl ?? site.wikipediaImageUrl,
+      mainImageUrl: this.wikipediaMediaService.getDisplayImageUrl(site),
       dateInscribed: site.dateInscribed,
     };
   }
