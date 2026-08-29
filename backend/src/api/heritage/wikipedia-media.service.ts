@@ -22,6 +22,8 @@ type WikipediaResponse = {
   query?: { pages?: Record<string, WikipediaPage> };
 };
 
+const FAILED_FETCH_RETRY_MS = 24 * 60 * 60 * 1_000;
+
 @Injectable()
 export class WikipediaMediaService {
   constructor(
@@ -32,9 +34,9 @@ export class WikipediaMediaService {
 
   async fillMissingImage(site: WorldHeritageSite): Promise<WorldHeritageSite> {
     if (
-      site.mainImageUrl ||
       site.wikipediaImageUrl ||
-      site.wikipediaImageFetchedAt
+      this.isUsableMainImageUrl(site.mainImageUrl) ||
+      this.wasRecentlyFetched(site.wikipediaImageFetchedAt)
     ) {
       return site;
     }
@@ -47,9 +49,9 @@ export class WikipediaMediaService {
       format: 'json',
       formatversion: '2',
       generator: 'search',
-      gsrsearch: `${site.nameEn} UNESCO World Heritage Site`,
+      gsrsearch: `${this.toPlainText(site.nameEn) ?? site.nameEn} UNESCO World Heritage Site`,
       gsrnamespace: '0',
-      gsrlimit: '1',
+      gsrlimit: '5',
       prop: 'pageimages|info',
       piprop: 'name|original|thumbnail',
       pithumbsize: '1600',
@@ -72,7 +74,12 @@ export class WikipediaMediaService {
       }
 
       const data = (await response.json()) as WikipediaResponse;
-      const page = Object.values(data.query?.pages ?? {})[0];
+      const pages = Object.values(data.query?.pages ?? {});
+      const page =
+        pages.find(
+          (candidate) =>
+            candidate.original?.source || candidate.thumbnail?.source,
+        ) ?? pages[0];
       const imageUrl =
         page?.original?.source ?? page?.thumbnail?.source ?? null;
       const attribution = page?.pageimage
@@ -90,6 +97,35 @@ export class WikipediaMediaService {
     }
 
     return site;
+  }
+
+  getDisplayImageUrl(site: WorldHeritageSite) {
+    if (this.isUsableMainImageUrl(site.mainImageUrl)) {
+      return site.mainImageUrl;
+    }
+    return site.wikipediaImageUrl;
+  }
+
+  private isUsableMainImageUrl(url: string | null) {
+    if (!url) return false;
+
+    try {
+      const parsed = new URL(url);
+      // UNESCO's document endpoint is protected by an interactive Cloudflare
+      // challenge, so it cannot be embedded in an <img>. Use Wikimedia's
+      // openly embeddable image instead.
+      return !(
+        parsed.hostname === 'whc.unesco.org' &&
+        parsed.pathname.startsWith('/document/')
+      );
+    } catch {
+      return false;
+    }
+  }
+
+  private wasRecentlyFetched(fetchedAt: Date | null) {
+    if (!fetchedAt) return false;
+    return Date.now() - fetchedAt.getTime() < FAILED_FETCH_RETRY_MS;
   }
 
   private async fetchAttribution(apiUrl: string, filename: string) {

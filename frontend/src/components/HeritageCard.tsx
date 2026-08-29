@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import type { SiteSummary } from '../types'
+import { HeritageImage } from './HeritageImage'
 
 export function HeritageCard({ site }: { site: SiteSummary }) {
   return (
@@ -9,18 +10,11 @@ export function HeritageCard({ site }: { site: SiteSummary }) {
         to={`/heritage/${site.uuid}`}
       >
         <div className="aspect-[16/10] overflow-hidden bg-[#e3dccd]">
-          {site.mainImageUrl ? (
-            <img
-              className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
-              src={site.mainImageUrl}
-              alt=""
-              loading="lazy"
-            />
-          ) : (
-            <div className="grid size-full place-items-center bg-[linear-gradient(135deg,#d9d0bd,#9db0a3)] text-4xl text-white/70">
-              ◇
-            </div>
-          )}
+          <HeritageImage
+            fallbackClassName="grid size-full place-items-center bg-[linear-gradient(135deg,#d9d0bd,#9db0a3)] text-4xl text-white/70"
+            imageClassName="size-full object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+            siteId={site.uuid}
+          />
         </div>
         <div className="p-5">
           <p className="text-[0.62rem] font-bold tracking-[0.15em] text-[#b85635] uppercase">

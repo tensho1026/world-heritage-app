@@ -81,6 +81,19 @@ export class HeritageService {
     return this.wikipediaMediaService.fillMissingImage(site);
   }
 
+  async getImageUrl(id: string) {
+    const site = await this.wikipediaMediaService.fillMissingImage(
+      await this.requireSite(id),
+    );
+    const imageUrl = this.wikipediaMediaService.getDisplayImageUrl(site);
+    if (!imageUrl) {
+      throw new NotFoundException(
+        'No embeddable image is available for this World Heritage site.',
+      );
+    }
+    return imageUrl;
+  }
+
   async recordView(heritageSiteId: string) {
     await this.requireSite(heritageSiteId);
     return this.viewRepository.save(

@@ -237,6 +237,7 @@ export type HeritageTheme = {
   nameEn: string
   descriptionJa: string
   count: number
+  representativeUuid: string | null
   mainImageUrl: string | null
 }
 

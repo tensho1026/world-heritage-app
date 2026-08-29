@@ -160,9 +160,6 @@ export class DiscoveryService {
         const [count, representative] = await Promise.all([
           countQuery.getCount(),
           imageQuery
-            .andWhere(
-              '(site.mainImageUrl IS NOT NULL OR site.wikipediaImageUrl IS NOT NULL)',
-            )
             .orderBy('site.isFeatured', 'DESC')
             .addOrderBy('site.nameEn', 'ASC')
             .getOne(),
@@ -170,6 +167,7 @@ export class DiscoveryService {
         return {
           ...theme,
           count,
+          representativeUuid: representative?.uuid ?? null,
           mainImageUrl:
             representative?.mainImageUrl ??
             representative?.wikipediaImageUrl ??

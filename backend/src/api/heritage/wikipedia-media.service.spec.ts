@@ -23,6 +23,11 @@ describe('WikipediaMediaService', () => {
   const repository = { save: jest.fn(async (site: WorldHeritageSite) => site) };
   const config = { get: jest.fn() } as unknown as ConfigService;
 
+  beforeEach(() => {
+    repository.save.mockClear();
+    (config.get as jest.Mock).mockClear();
+  });
+
   afterEach(() => jest.restoreAllMocks());
 
   it('does not query Wikipedia when UNESCO supplied an image', async () => {
@@ -37,6 +42,38 @@ describe('WikipediaMediaService', () => {
 
     await expect(service.fillMissingImage(site)).resolves.toBe(site);
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it('uses Wikipedia when the UNESCO document URL cannot be embedded', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            {
+              fullurl: 'https://en.wikipedia.org/wiki/Bamyan_Valley',
+              original: {
+                source: 'https://upload.wikimedia.org/fallback.jpg',
+              },
+            },
+          ],
+        },
+      }),
+    } as Response);
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      mainImageUrl: 'https://whc.unesco.org/document/12345',
+    });
+
+    await expect(service.fillMissingImage(site)).resolves.toMatchObject({
+      wikipediaImageUrl: 'https://upload.wikimedia.org/fallback.jpg',
+    });
+    expect(service.getDisplayImageUrl(site)).toBe(
+      'https://upload.wikimedia.org/fallback.jpg',
+    );
   });
 
   it('stores a Wikipedia image and its source page as fallback', async () => {
@@ -90,5 +127,63 @@ describe('WikipediaMediaService', () => {
       wikipediaImageLicense: 'CC BY-SA 4.0',
     });
     expect(repository.save).toHaveBeenCalledWith(site);
+  });
+
+  it('uses the first search result that actually contains an image', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            { fullurl: 'https://en.wikipedia.org/wiki/No_image' },
+            {
+              fullurl:
+                'https://en.wikipedia.org/wiki/Auschwitz_concentration_camp',
+              thumbnail: {
+                source: 'https://upload.wikimedia.org/auschwitz.jpg',
+              },
+            },
+          ],
+        },
+      }),
+    } as Response);
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      nameEn:
+        'Auschwitz Birkenau <br /><small>German Nazi Concentration Camp</small>',
+    });
+
+    await expect(service.fillMissingImage(site)).resolves.toMatchObject({
+      wikipediaImageUrl: 'https://upload.wikimedia.org/auschwitz.jpg',
+    });
+    const requestedUrl = new URL(String(fetchSpy.mock.calls[0][0]));
+    expect(requestedUrl.searchParams.get('gsrlimit')).toBe('5');
+    expect(requestedUrl.searchParams.get('gsrsearch')).not.toContain('<');
+  });
+
+  it('throttles failed lookups for a day and retries stale failures', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ query: { pages: [] } }),
+    } as Response);
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+
+    await service.fillMissingImage(
+      createSite({ wikipediaImageFetchedAt: new Date() }),
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+
+    await service.fillMissingImage(
+      createSite({
+        wikipediaImageFetchedAt: new Date(Date.now() - 25 * 60 * 60 * 1_000),
+      }),
+    );
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });

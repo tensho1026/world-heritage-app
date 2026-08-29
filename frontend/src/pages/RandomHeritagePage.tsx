@@ -263,8 +263,10 @@ export default function RandomHeritagePage() {
 
   const learning = learningQuery.data
   const translation = translationQuery.data
-  const imageUrl = site.mainImageUrl ?? site.wikipediaImageUrl
-  const imageSourceUrl = site.mainImageSourceUrl ?? site.wikipediaPageUrl
+  const imageUrl = site.wikipediaImageUrl ?? site.mainImageUrl
+  const imageSourceUrl = site.wikipediaImageUrl
+    ? site.wikipediaPageUrl
+    : site.mainImageSourceUrl
   const criteria = [...site.culturalCriteria, ...site.naturalCriteria]
   const highlights = highlightsQuery.data ?? []
   const highlightsFor = (sectionKey: string) =>

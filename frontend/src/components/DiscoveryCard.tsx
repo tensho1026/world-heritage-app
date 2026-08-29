@@ -1,22 +1,16 @@
 import { Link } from 'react-router-dom'
 import type { DiscoverySite } from '../types'
+import { HeritageImage } from './HeritageImage'
 
 export function DiscoveryCard({ site }: { site: DiscoverySite }) {
   return (
     <article className="grid grid-cols-[120px_minmax(0,1fr)] overflow-hidden border border-[#18352f]/15 bg-white/45 max-[520px]:grid-cols-1">
       <div className="min-h-36 bg-[#d9d0bd]">
-        {site.mainImageUrl ? (
-          <img
-            alt=""
-            className="size-full object-cover"
-            loading="lazy"
-            src={site.mainImageUrl}
-          />
-        ) : (
-          <div className="grid size-full place-items-center text-2xl text-white/70">
-            ◇
-          </div>
-        )}
+        <HeritageImage
+          fallbackClassName="grid size-full place-items-center text-2xl text-white/70"
+          imageClassName="size-full object-cover"
+          siteId={site.uuid}
+        />
       </div>
       <div className="p-5">
         <div className="flex flex-wrap gap-2 text-[0.58rem] font-bold tracking-[0.08em]">
