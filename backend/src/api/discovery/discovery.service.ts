@@ -29,9 +29,20 @@ export type DiscoveryFilters = {
 
 const DISCOVERY_PAGE_SIZE = 24;
 const MAX_DISCOVERY_PAGE_SIZE = 100;
+const THEME_CACHE_TTL_MS = 5 * 60_000;
+
+type ThemeSummary = ThemeDefinition & {
+  count: number;
+  representativeUuid: string | null;
+  mainImageUrl: string | null;
+};
 
 @Injectable()
 export class DiscoveryService {
+  private themeCache: { expiresAt: number; value: ThemeSummary[] } | null =
+    null;
+  private themeLoad: Promise<ThemeSummary[]> | null = null;
+
   constructor(
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
@@ -212,6 +223,25 @@ export class DiscoveryService {
   }
 
   async getThemes() {
+    if (this.themeCache && this.themeCache.expiresAt > Date.now()) {
+      return this.themeCache.value;
+    }
+    if (this.themeLoad) return this.themeLoad;
+
+    this.themeLoad = this.loadThemes();
+    try {
+      const value = await this.themeLoad;
+      this.themeCache = {
+        expiresAt: Date.now() + THEME_CACHE_TTL_MS,
+        value,
+      };
+      return value;
+    } finally {
+      this.themeLoad = null;
+    }
+  }
+
+  private async loadThemes(): Promise<ThemeSummary[]> {
     return Promise.all(
       heritageThemes.map(async (theme) => {
         const countQuery = this.heritageRepository.createQueryBuilder('site');
