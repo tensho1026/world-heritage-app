@@ -44,8 +44,10 @@ const TITLE_STOP_WORDS = new Set([
   'city',
   'cultural',
   'for',
+  'from',
   'historic',
   'in',
+  'its',
   'landscape',
   'national',
   'of',
@@ -57,8 +59,10 @@ const TITLE_STOP_WORDS = new Set([
   'sites',
   'system',
   'the',
+  'to',
   'unesco',
   'world',
+  'with',
   'heritage',
 ]);
 
@@ -118,11 +122,22 @@ export class WikipediaMediaService {
           (left.index ?? Number.MAX_SAFE_INTEGER) -
           (right.index ?? Number.MAX_SAFE_INTEGER),
       );
-      const page = pages.find(
-        (candidate) =>
-          (candidate.original?.source || candidate.thumbnail?.source) &&
-          this.isRelevantWikipediaTitle(site.nameEn, candidate.title),
-      );
+      const page = pages
+        .filter(
+          (candidate) =>
+            candidate.original?.source || candidate.thumbnail?.source,
+        )
+        .map((candidate) => ({
+          candidate,
+          relevance: this.wikipediaTitleRelevance(site.nameEn, candidate.title),
+        }))
+        .filter(({ relevance }) => relevance > 0)
+        .sort(
+          (left, right) =>
+            right.relevance - left.relevance ||
+            (left.candidate.index ?? Number.MAX_SAFE_INTEGER) -
+              (right.candidate.index ?? Number.MAX_SAFE_INTEGER),
+        )[0]?.candidate;
       const imageUrl =
         page?.original?.source ?? page?.thumbnail?.source ?? null;
       const attribution = page?.pageimage
@@ -152,7 +167,9 @@ export class WikipediaMediaService {
   private hasRelevantWikipediaImage(site: WorldHeritageSite) {
     if (!site.wikipediaImageUrl) return false;
     const title = this.wikipediaTitleFromUrl(site.wikipediaPageUrl);
-    return title !== null && this.isRelevantWikipediaTitle(site.nameEn, title);
+    return (
+      title !== null && this.wikipediaTitleRelevance(site.nameEn, title) > 0
+    );
   }
 
   private wikipediaTitleFromUrl(url: string | null) {
@@ -168,8 +185,8 @@ export class WikipediaMediaService {
     }
   }
 
-  private isRelevantWikipediaTitle(siteName: string, candidateTitle?: string) {
-    if (!candidateTitle) return false;
+  private wikipediaTitleRelevance(siteName: string, candidateTitle?: string) {
+    if (!candidateTitle) return 0;
 
     const normalizedSiteName = this.normalizeTitle(siteName);
     const normalizedCandidate = this.normalizeTitle(candidateTitle);
@@ -178,40 +195,38 @@ export class WikipediaMediaService {
       GENERIC_WIKIPEDIA_TITLES.has(normalizedCandidate) ||
       normalizedCandidate.startsWith('list of world heritage sites')
     ) {
-      return false;
+      return 0;
     }
     if (
       normalizedSiteName === normalizedCandidate ||
       normalizedSiteName.includes(normalizedCandidate) ||
       normalizedCandidate.includes(normalizedSiteName)
     ) {
-      return true;
+      return normalizedSiteName === normalizedCandidate ? 1 : 0.9;
     }
 
     const siteTokens = this.titleTokens(normalizedSiteName);
     const candidateTokens = this.titleTokens(normalizedCandidate);
     const smallerTokenCount = Math.min(siteTokens.size, candidateTokens.size);
-    if (smallerTokenCount === 0) return false;
+    if (smallerTokenCount === 0) return 0;
 
     const firstSiteToken = siteTokens.values().next().value as
       string | undefined;
     const firstCandidateToken = candidateTokens.values().next().value as
       string | undefined;
-    if (
-      !firstSiteToken ||
-      !firstCandidateToken ||
-      !this.areMatchingTitleTokens(firstSiteToken, firstCandidateToken)
-    ) {
-      return false;
-    }
-
     const overlap = [...candidateTokens].filter((candidateToken) =>
       [...siteTokens].some((siteToken) =>
         this.areMatchingTitleTokens(siteToken, candidateToken),
       ),
     ).length;
-    const minimumOverlap = Math.min(2, smallerTokenCount);
-    return overlap >= minimumOverlap && overlap / smallerTokenCount >= 0.6;
+    const firstTokenMatches =
+      Boolean(firstSiteToken) &&
+      Boolean(firstCandidateToken) &&
+      this.areMatchingTitleTokens(firstSiteToken!, firstCandidateToken!);
+    const overlapRatio =
+      overlap / Math.max(siteTokens.size, candidateTokens.size);
+    if (overlapRatio < 0.5 || (!firstTokenMatches && overlap < 3)) return 0;
+    return overlapRatio + (firstTokenMatches ? 0.05 : 0);
   }
 
   private normalizeTitle(value: string) {

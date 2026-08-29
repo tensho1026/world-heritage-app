@@ -268,6 +268,37 @@ describe('WikipediaMediaService', () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      'Ancient Thebes with its Necropolis',
+      'https://en.wikipedia.org/wiki/Thebes,_Egypt',
+    ],
+    [
+      'Bikini Atoll Nuclear Test Site',
+      'https://en.wikipedia.org/wiki/Nuclear_testing_at_Bikini_Atoll',
+    ],
+  ])(
+    'accepts a relevant Wikipedia alias for %s',
+    async (nameEn, wikipediaPageUrl) => {
+      const fetchSpy = jest.spyOn(global, 'fetch');
+      const service = new WikipediaMediaService(
+        repository as unknown as Repository<WorldHeritageSite>,
+        config,
+      );
+      const site = createSite({
+        nameEn,
+        wikipediaImageUrl: 'https://upload.wikimedia.org/relevant-image.jpg',
+        wikipediaPageUrl,
+      });
+
+      await expect(service.fillMissingImage(site)).resolves.toBe(site);
+      expect(service.getDisplayImageUrl(site)).toBe(
+        'https://upload.wikimedia.org/relevant-image.jpg',
+      );
+      expect(fetchSpy).not.toHaveBeenCalled();
+    },
+  );
+
   it('throttles failed lookups for a day and retries stale failures', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
       ok: true,
