@@ -9,6 +9,14 @@ export async function translateArticle(heritageSiteId: string) {
   return data
 }
 
+export async function translateArticleWithDeepL(heritageSiteId: string) {
+  const { data } = await apiClient.post<ArticleTranslation>(
+    '/translations/article/deepl',
+    { heritageSiteId },
+  )
+  return data
+}
+
 export async function translateSelection(
   expression: string,
   sourceSentenceEn: string,

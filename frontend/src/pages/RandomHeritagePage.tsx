@@ -14,6 +14,7 @@ import {
   updateReadLater,
 } from '../api/heritage'
 import { getHighlights } from '../api/highlights'
+import { translateArticleWithDeepL } from '../api/translations'
 import { AppShell } from '../components/AppShell'
 import { PageError } from '../components/AsyncState'
 // import { SpeechControls } from '../components/SpeechControls'
@@ -113,7 +114,10 @@ export default function RandomHeritagePage() {
   })
   const [randomSequence, setRandomSequence] = useState(0)
   const [previousId, setPreviousId] = useState<string>()
-  const [showTranslation, setShowTranslation] = useState(false)
+  const [translationDisplay, setTranslationDisplay] = useState<{
+    siteId: string
+    source: 'database' | 'deepl'
+  } | null>(null)
   const [captureMode, setCaptureMode] = useState(false)
   const [highlightMode, setHighlightMode] = useState(false)
   const [imageFailed, setImageFailed] = useState(false)
@@ -129,6 +133,12 @@ export default function RandomHeritagePage() {
     staleTime: routeId ? 60_000 : 0,
   })
   const site = heritageQuery.data
+  const deepLTranslationQuery = useQuery({
+    queryKey: ['article-translation', 'deepl', site?.uuid],
+    queryFn: () => translateArticleWithDeepL(site!.uuid),
+    enabled: false,
+    retry: false,
+  })
   const learningQuery = useQuery({
     queryKey: ['learning-state', site?.uuid],
     queryFn: () => getLearningState(site!.uuid),
@@ -139,6 +149,12 @@ export default function RandomHeritagePage() {
     queryFn: () => getHighlights(site!.uuid),
     enabled: Boolean(site),
   })
+  const activeTranslationSource =
+    translationDisplay && translationDisplay.siteId === site?.uuid
+      ? translationDisplay.source
+      : null
+  const showTranslation = activeTranslationSource === 'database'
+  const showDeepLTranslation = activeTranslationSource === 'deepl'
 
   useEffect(() => {
     if (!site || viewedIdRef.current === site.uuid) return
@@ -210,7 +226,7 @@ export default function RandomHeritagePage() {
   }
 
   function showNext() {
-    setShowTranslation(false)
+    setTranslationDisplay(null)
     setCaptureMode(false)
     setHighlightMode(false)
     setImageFailed(false)
@@ -224,7 +240,25 @@ export default function RandomHeritagePage() {
   }
 
   function toggleTranslation() {
-    setShowTranslation((value) => !value)
+    if (!site) return
+    setTranslationDisplay((current) =>
+      current?.siteId === site.uuid && current.source === 'database'
+        ? null
+        : { siteId: site.uuid, source: 'database' },
+    )
+  }
+
+  async function toggleDeepLTranslation() {
+    if (showDeepLTranslation) {
+      setTranslationDisplay(null)
+      return
+    }
+    const result = deepLTranslationQuery.data
+      ? { data: deepLTranslationQuery.data }
+      : await deepLTranslationQuery.refetch()
+    if (result.data) {
+      setTranslationDisplay({ siteId: site!.uuid, source: 'deepl' })
+    }
   }
 
   if (heritageQuery.isPending) {
@@ -246,7 +280,7 @@ export default function RandomHeritagePage() {
   }
 
   const learning = learningQuery.data
-  const translation: ArticleTranslation = {
+  const storedTranslation: ArticleTranslation = {
     nameEn: site.nameJa ?? undefined,
     shortDescriptionEn: site.shortDescriptionJa ?? undefined,
     descriptionEn: site.descriptionJa ?? undefined,
@@ -254,6 +288,10 @@ export default function RandomHeritagePage() {
     criteriaText: site.criteriaTextJa ?? undefined,
     mainImageCaptionEn: site.mainImageCaptionJa ?? undefined,
   }
+  const translation = showDeepLTranslation
+    ? deepLTranslationQuery.data
+    : storedTranslation
+  const showArticleTranslation = showTranslation || showDeepLTranslation
   const imageUrl = site.wikipediaImageUrl ?? site.mainImageUrl
   const imageSourceUrl = site.wikipediaImageUrl
     ? site.wikipediaPageUrl
@@ -322,7 +360,7 @@ export default function RandomHeritagePage() {
                   Source
                 </a>
               )}
-              {showTranslation && translation?.mainImageCaptionEn && (
+              {showArticleTranslation && translation?.mainImageCaptionEn && (
                 <span className="mt-1 block text-[#b85635]">
                   {translation.mainImageCaptionEn}
                 </span>
@@ -368,7 +406,7 @@ export default function RandomHeritagePage() {
                 </h1>
               </VocabularyCapture>
             </HighlightCapture>
-            {showTranslation && translation?.nameEn && (
+            {showArticleTranslation && translation?.nameEn && (
               <p className="mt-3 font-serif text-xl text-[#b85635]">
                 {translation.nameEn}
               </p>
@@ -393,7 +431,7 @@ export default function RandomHeritagePage() {
                 </VocabularyCapture>
               </HighlightCapture>
             )}
-            {showTranslation && translation?.shortDescriptionEn && (
+            {showArticleTranslation && translation?.shortDescriptionEn && (
               <JapaneseTranslation text={translation.shortDescriptionEn} />
             )}
             <Facts site={site} criteria={criteria} />
@@ -406,6 +444,8 @@ export default function RandomHeritagePage() {
           learning={learning}
           site={site}
           showTranslation={showTranslation}
+          showDeepLTranslation={showDeepLTranslation}
+          translatingWithDeepL={deepLTranslationQuery.isFetching}
           onCapture={() => {
             setCaptureMode((value) => !value)
             setHighlightMode(false)
@@ -425,7 +465,13 @@ export default function RandomHeritagePage() {
             )
           }
           onTranslate={toggleTranslation}
+          onTranslateWithDeepL={() => void toggleDeepLTranslation()}
         />
+        {deepLTranslationQuery.isError && (
+          <p className="mt-3 text-xs text-[#b85635]">
+            {getApiErrorMessage(deepLTranslationQuery.error)}
+          </p>
+        )}
         <section className="grid grid-cols-[minmax(0,1fr)_330px] gap-[clamp(50px,8vw,120px)] py-16 max-[900px]:grid-cols-1">
           <article id="about-site">
             <p className="text-[0.65rem] font-extrabold tracking-[0.2em] text-[#b85635] uppercase">
@@ -477,7 +523,7 @@ export default function RandomHeritagePage() {
                       />
                     )
                   })}
-                  {showTranslation && translation?.descriptionEn && (
+                  {showArticleTranslation && translation?.descriptionEn && (
                     <JapaneseTranslation text={translation.descriptionEn} />
                   )}
                 </div>
@@ -491,7 +537,7 @@ export default function RandomHeritagePage() {
                       text={displayJustification}
                       sectionType="justification"
                     />
-                    {showTranslation && translation?.justificationEn && (
+                    {showArticleTranslation && translation?.justificationEn && (
                       <JapaneseTranslation text={translation.justificationEn} />
                     )}
                   </div>
@@ -507,7 +553,8 @@ export default function RandomHeritagePage() {
             learning={learning}
             mutationPending={learningMutation.isPending}
             site={site}
-            showTranslation={showTranslation}
+            showTranslation={showArticleTranslation}
+            showDatabaseTranslation={showTranslation}
             translation={translation}
             displayCriteria={displayCriteria}
             onComprehension={(value) =>
@@ -701,9 +748,12 @@ function ActionBar({
   captureMode,
   highlightMode,
   showTranslation,
+  showDeepLTranslation,
+  translatingWithDeepL,
   onCapture,
   onHighlight,
   onTranslate,
+  onTranslateWithDeepL,
   onFavorite,
   onReadLater,
 }: {
@@ -712,9 +762,12 @@ function ActionBar({
   captureMode: boolean
   highlightMode: boolean
   showTranslation: boolean
+  showDeepLTranslation: boolean
+  translatingWithDeepL: boolean
   onCapture: () => void
   onHighlight: () => void
   onTranslate: () => void
+  onTranslateWithDeepL: () => void
   onFavorite: () => void
   onReadLater: () => void
 }) {
@@ -728,6 +781,18 @@ function ActionBar({
           type="button"
         >
           {showTranslation ? '英語だけに戻す' : '日本語訳を表示'}
+        </button>
+        <button
+          className={`${button} border-[#2877b5] text-[#195f96] hover:bg-[#2877b5] hover:text-white`}
+          disabled={translatingWithDeepL}
+          onClick={onTranslateWithDeepL}
+          type="button"
+        >
+          {translatingWithDeepL
+            ? 'DeepLで翻訳中…'
+            : showDeepLTranslation
+              ? 'DeepL訳を閉じる'
+              : 'DeepLで翻訳'}
         </button>
         <button
           className={`${button} ${highlightMode ? 'border-[#e7c778] bg-[#e7c778]' : 'border-[#18352f]/25'}`}
@@ -793,6 +858,7 @@ function ReaderSidebar({
   highlightMode,
   highlights,
   showTranslation,
+  showDatabaseTranslation,
   translation,
   displayCriteria,
   mutationPending,
@@ -804,6 +870,7 @@ function ReaderSidebar({
   highlightMode: boolean
   highlights: ArticleHighlight[]
   showTranslation: boolean
+  showDatabaseTranslation: boolean
   translation?: ArticleTranslation
   displayCriteria: string | null
   mutationPending: boolean
@@ -905,7 +972,7 @@ function ReaderSidebar({
           </p>
           {site.dangerList && (
             <p className="mt-2 text-xs leading-5 text-[#18352f]/60">
-              {showTranslation && site.dangerListJa
+              {showDatabaseTranslation && site.dangerListJa
                 ? site.dangerListJa
                 : site.dangerList}
             </p>

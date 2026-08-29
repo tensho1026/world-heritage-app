@@ -30,7 +30,7 @@ const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error('DATABASE_URL is required.');
 
 const libreTranslateUrl = (
-  process.env.LIBRETRANSLATE_URL ?? 'http://127.0.0.1:5000'
+  process.env.LIBRETRANSLATE_URL ?? 'http://127.0.0.1:5001'
 ).replace(/\/$/, '');
 const apiKey = process.env.LIBRETRANSLATE_API_KEY;
 const limit = Number(process.env.TRANSLATE_LIMIT ?? 0);
