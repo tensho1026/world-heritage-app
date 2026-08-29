@@ -42,9 +42,13 @@ export class DeepLService {
     const cacheMap = new Map(
       cached.map((entry) => [entry.sourceTextHash, entry.translatedText]),
     );
-    const missingIndexes = hashes.flatMap((hash, index) =>
-      cacheMap.has(hash) ? [] : [index],
-    );
+    const missingIndexByHash = new Map<string, number>();
+    hashes.forEach((hash, index) => {
+      if (!cacheMap.has(hash) && !missingIndexByHash.has(hash)) {
+        missingIndexByHash.set(hash, index);
+      }
+    });
+    const missingIndexes = [...missingIndexByHash.values()];
 
     if (missingIndexes.length) {
       const translated = await this.requestDeepL(

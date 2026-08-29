@@ -17,13 +17,13 @@ import { translateArticle } from '../api/translations'
 import { getHighlights } from '../api/highlights'
 import { AppShell } from '../components/AppShell'
 import { PageError } from '../components/AsyncState'
-import { SpeechControls } from '../components/SpeechControls'
+// import { SpeechControls } from '../components/SpeechControls'
 import { HighlightCapture } from '../components/HighlightCapture'
 import { HighlightsPanel } from '../components/HighlightsPanel'
 import { ReadingQuiz } from '../components/ReadingQuiz'
 import { ReadingLevelControls } from '../components/ReadingLevelControls'
-import { ShadowingMode } from '../components/ShadowingMode'
-import { DictationPractice } from '../components/DictationPractice'
+// import { ShadowingMode } from '../components/ShadowingMode'
+// import { DictationPractice } from '../components/DictationPractice'
 import { WritingChallenge } from '../components/WritingChallenge'
 import {
   SelectableText,
@@ -230,14 +230,15 @@ export default function RandomHeritagePage() {
   const displayCriteria = site.criteriaText
     ? simplifyEnglish(site.criteriaText, readingLevel)
     : null
-  const speechText = [
-    site.nameEn,
-    displayShortDescription,
-    displayDescription,
-    displayJustification,
-  ]
-    .filter(Boolean)
-    .join('. ')
+  // 音声機能を再開する場合は、以下の speechText と表示箇所を戻す。
+  // const speechText = [
+  //   site.nameEn,
+  //   displayShortDescription,
+  //   displayDescription,
+  //   displayJustification,
+  // ]
+  //   .filter(Boolean)
+  //   .join('. ')
 
   return (
     <AppShell>
@@ -406,6 +407,7 @@ export default function RandomHeritagePage() {
               }}
               site={site}
             />
+            {/* 音声読み上げ・シャドーイング・ディクテーションは現在無効。
             <div className="mt-7">
               <SpeechControls text={speechText} />
             </div>
@@ -424,6 +426,7 @@ export default function RandomHeritagePage() {
                 )
               }}
             />
+            */}
             <WritingChallenge
               heritageSiteId={site.uuid}
               text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}

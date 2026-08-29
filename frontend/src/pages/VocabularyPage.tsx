@@ -9,7 +9,7 @@ import {
 } from '../api/vocabulary'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
-import { SpeakButton } from '../components/SpeakButton'
+// import { SpeakButton } from '../components/SpeakButton'
 
 type Filter = 'all' | 'memorization' | 'uncertain'
 
@@ -139,10 +139,12 @@ export default function VocabularyPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
                     <h2 className="font-serif text-2xl">{item.expression}</h2>
+                    {/* 音声読み上げは現在無効。
                     <SpeakButton
                       label={`${item.expression}を読み上げる`}
                       text={item.expression}
                     />
+                    */}
                   </div>
                   <p className="mt-2 text-base text-[#b85635]">
                     {item.translationJa}
@@ -189,10 +191,12 @@ export default function VocabularyPage() {
                       <p className="min-w-0 flex-1 text-sm leading-7 text-[#18352f]/68">
                         {source.sourceSentenceEn}
                       </p>
+                      {/* 音声読み上げは現在無効。
                       <SpeakButton
                         label="出典の英文を読み上げる"
                         text={source.sourceSentenceEn}
                       />
+                      */}
                     </div>
                     <Link
                       className="mt-1 inline-block text-[0.65rem] font-bold text-[#b85635]"

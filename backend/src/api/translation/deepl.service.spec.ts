@@ -65,6 +65,37 @@ describe('DeepLService', () => {
     );
   });
 
+  it('translates and caches duplicate text only once', async () => {
+    cacheRepository.find.mockResolvedValue([]);
+    cacheRepository.upsert.mockResolvedValue(undefined);
+    const config = {
+      get: jest.fn((key: string) =>
+        key === 'DEEPL_API_KEY' ? 'secret' : undefined,
+      ),
+    } as unknown as ConfigService;
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({ translations: [{ text: '世界遺産' }] }),
+    } as Response);
+    const service = new DeepLService(
+      cacheRepository as unknown as Repository<TranslationCache>,
+      config,
+    );
+
+    await expect(
+      service.translateTexts(['World Heritage', 'World Heritage']),
+    ).resolves.toEqual(['世界遺産', '世界遺産']);
+
+    const request = JSON.parse(
+      (fetchSpy.mock.calls[0][1] as RequestInit).body as string,
+    ) as { text: string[] };
+    expect(request.text).toEqual(['World Heritage']);
+    expect(cacheRepository.upsert).toHaveBeenCalledWith(
+      [expect.objectContaining({ translatedText: '世界遺産' })],
+      expect.any(Object),
+    );
+  });
+
   it('reports missing configuration without exposing a key', async () => {
     cacheRepository.find.mockResolvedValue([]);
     const config = { get: jest.fn() } as unknown as ConfigService;
