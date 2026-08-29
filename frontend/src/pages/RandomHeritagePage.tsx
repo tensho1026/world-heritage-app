@@ -50,6 +50,59 @@ const comprehensionOptions: Array<{
   { value: 'understood', label: 'よく分かった', symbol: '◎' },
 ]
 
+const heritageCriteriaGuide = [
+  {
+    code: 'i',
+    meaning: '人類の創造的才能を示す傑作',
+    example: 'タージ・マハルの建築美など',
+  },
+  {
+    code: 'ii',
+    meaning: '建築、技術、都市計画などにおける人類の価値観の交流',
+    example: '歴史都市イスタンブールに見られる文化交流など',
+  },
+  {
+    code: 'iii',
+    meaning: '現存または消滅した文化や文明を伝える独自の証拠',
+    example: 'ポンペイの遺跡が古代ローマの生活を伝えることなど',
+  },
+  {
+    code: 'iv',
+    meaning: '人類史の重要な段階を示す建築・技術・景観の優れた例',
+    example: 'ローマのコロッセオなどの古代公共建築',
+  },
+  {
+    code: 'v',
+    meaning: '文化を代表する伝統的な集落、土地利用、海域利用',
+    example: 'フィリピン・コルディリェーラの棚田など',
+  },
+  {
+    code: 'vi',
+    meaning: '重要な出来事、伝統、思想、信仰、芸術作品との強い関連',
+    example: '広島平和記念碑（原爆ドーム）と平和への思想など',
+  },
+  {
+    code: 'vii',
+    meaning: 'ひときわ優れた自然現象や自然美をもつ地域',
+    example: 'グランド・キャニオンの壮大な景観など',
+  },
+  {
+    code: 'viii',
+    meaning: '地球の歴史や地形形成の進行を示す優れた例',
+    example: 'グランド・キャニオンの地層と侵食地形など',
+  },
+  {
+    code: 'ix',
+    meaning: '生態系や動植物群集の進化に関わる重要な進行過程',
+    example: 'ガラパゴス諸島で観察できる進化と生態系など',
+  },
+  {
+    code: 'x',
+    meaning: '絶滅危惧種を含む生物多様性保全上の重要な生息地',
+    example: 'ガラパゴス諸島に暮らす固有種の生息地など',
+  },
+] as const
+
 export default function RandomHeritagePage() {
   const { id: routeId } = useParams<{ id: string }>()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -866,9 +919,12 @@ function ReaderSidebar({
       </div>
       {displayCriteria && (
         <div>
-          <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
-            HERITAGE CRITERIA
-          </p>
+          <div className="flex items-center gap-2">
+            <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
+              HERITAGE CRITERIA
+            </p>
+            <CriteriaHelp site={site} />
+          </div>
           <HighlightCapture
             enabled={highlightMode}
             heritageName={site.nameEn}
@@ -912,6 +968,78 @@ function ReaderSidebar({
         </div>
       )}
     </aside>
+  )
+}
+
+function CriteriaHelp({ site }: { site: WorldHeritageSite }) {
+  const [open, setOpen] = useState(false)
+  const activeCriteria = new Set(
+    [...site.culturalCriteria, ...site.naturalCriteria].map(criterionCode),
+  )
+
+  return (
+    <div className="relative">
+      <button
+        aria-controls="heritage-criteria-help"
+        aria-expanded={open}
+        aria-label="世界遺産の登録基準の説明を表示"
+        className="grid size-6 place-items-center rounded-full border border-[#b85635]/45 text-xs font-bold text-[#b85635] transition-colors hover:bg-[#b85635]/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#b85635]"
+        onClick={() => setOpen((current) => !current)}
+        title="登録基準と具体例を見る"
+        type="button"
+      >
+        ?
+      </button>
+      {open && (
+        <div
+          className="absolute top-8 right-0 z-20 w-[min(34rem,calc(100vw-3rem))] border border-[#18352f]/15 bg-[#f8f3e9] p-5 shadow-[0_18px_45px_rgb(32_48_43_/_18%)] max-[900px]:fixed max-[900px]:top-20 max-[900px]:right-6 max-[900px]:left-6 max-[900px]:w-auto"
+          id="heritage-criteria-help"
+          role="region"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="font-serif text-lg">世界遺産の登録基準とは？</p>
+              <p className="mt-2 text-xs leading-5 text-[#18352f]/65">
+                UNESCOが「顕著な普遍的価値」を判断する10の基準です。
+                登録には少なくとも1つを満たす必要があり、(i)〜(vi)は文化、
+                (vii)〜(x)は自然の価値を示します。
+              </p>
+            </div>
+            <button
+              aria-label="登録基準の説明を閉じる"
+              className="text-lg leading-none text-[#18352f]/45 hover:text-[#18352f]"
+              onClick={() => setOpen(false)}
+              type="button"
+            >
+              ×
+            </button>
+          </div>
+          <ul className="mt-4 max-h-[min(28rem,65vh)] space-y-2 overflow-y-auto pr-1">
+            {heritageCriteriaGuide.map((criterion) => {
+              const active = activeCriteria.has(criterion.code)
+              return (
+                <li
+                  className={`border p-3 ${active ? 'border-[#b85635]/45 bg-[#b85635]/8' : 'border-[#18352f]/10 bg-white/40'}`}
+                  key={criterion.code}
+                >
+                  <p className="text-xs font-bold text-[#18352f]">
+                    ({criterion.code}) {criterion.meaning}
+                    {active && (
+                      <span className="ml-2 text-[0.58rem] text-[#b85635]">
+                        この遺産に該当
+                      </span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-[0.68rem] leading-5 text-[#18352f]/60">
+                    例：{criterion.example}
+                  </p>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -1004,7 +1132,12 @@ function categoryLabel(category: WorldHeritageSite['category']) {
 }
 
 function formatCriterion(value: string) {
-  return `(${value.replace(/^[cn]/, '')})`
+  return `(${criterionCode(value)})`
+}
+
+function criterionCode(value: string) {
+  const number = Number(value.replace(/^[cn]/, ''))
+  return heritageCriteriaGuide[number - 1]?.code ?? value
 }
 
 function coordinate(value: number | null, positive: string, negative: string) {
