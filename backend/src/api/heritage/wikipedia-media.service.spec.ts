@@ -51,6 +51,7 @@ describe('WikipediaMediaService', () => {
         query: {
           pages: [
             {
+              title: 'Bamyan Valley',
               fullurl: 'https://en.wikipedia.org/wiki/Bamyan_Valley',
               original: {
                 source: 'https://upload.wikimedia.org/fallback.jpg',
@@ -85,6 +86,7 @@ describe('WikipediaMediaService', () => {
           query: {
             pages: [
               {
+                title: 'Bamyan Valley',
                 fullurl: 'https://en.wikipedia.org/wiki/Bamyan_Valley',
                 pageimage: 'Bamyan.jpg',
                 original: {
@@ -129,14 +131,23 @@ describe('WikipediaMediaService', () => {
     expect(repository.save).toHaveBeenCalledWith(site);
   });
 
-  it('uses the first search result that actually contains an image', async () => {
+  it('uses the first relevant ranked search result that contains an image', async () => {
     const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
       ok: true,
       json: async () => ({
         query: {
           pages: [
-            { fullurl: 'https://en.wikipedia.org/wiki/No_image' },
             {
+              title: 'World Heritage Site',
+              index: 2,
+              fullurl: 'https://en.wikipedia.org/wiki/World_Heritage_Site',
+              original: {
+                source: 'https://upload.wikimedia.org/world-heritage-logo.svg',
+              },
+            },
+            {
+              title: 'Auschwitz concentration camp',
+              index: 1,
               fullurl:
                 'https://en.wikipedia.org/wiki/Auschwitz_concentration_camp',
               thumbnail: {
@@ -162,6 +173,99 @@ describe('WikipediaMediaService', () => {
     const requestedUrl = new URL(String(fetchSpy.mock.calls[0][0]));
     expect(requestedUrl.searchParams.get('gsrlimit')).toBe('5');
     expect(requestedUrl.searchParams.get('gsrsearch')).not.toContain('<');
+  });
+
+  it('rejects unrelated image results instead of caching a generic logo', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            {
+              title: 'World Heritage Site',
+              index: 1,
+              fullurl: 'https://en.wikipedia.org/wiki/World_Heritage_Site',
+              original: {
+                source: 'https://upload.wikimedia.org/world-heritage-logo.svg',
+              },
+            },
+          ],
+        },
+      }),
+    } as Response);
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({ nameEn: 'Great Barrier Reef' });
+
+    await expect(service.fillMissingImage(site)).resolves.toMatchObject({
+      wikipediaImageUrl: null,
+      wikipediaPageUrl: null,
+    });
+    expect(service.getDisplayImageUrl(site)).toBeNull();
+  });
+
+  it('replaces a cached image when its Wikipedia page is unrelated', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({
+        query: {
+          pages: [
+            {
+              title: 'New Caledonian barrier reef',
+              index: 1,
+              fullurl:
+                'https://en.wikipedia.org/wiki/New_Caledonian_barrier_reef',
+              original: {
+                source: 'https://upload.wikimedia.org/new-caledonian-reef.jpg',
+              },
+            },
+            {
+              title: 'Great Barrier Reef',
+              index: 2,
+              fullurl: 'https://en.wikipedia.org/wiki/Great_Barrier_Reef',
+              original: {
+                source: 'https://upload.wikimedia.org/great-barrier-reef.jpg',
+              },
+            },
+          ],
+        },
+      }),
+    } as Response);
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      nameEn: 'Great Barrier Reef',
+      wikipediaImageUrl: 'https://upload.wikimedia.org/world-heritage-logo.svg',
+      wikipediaPageUrl:
+        'https://en.wikipedia.org/wiki/New_Caledonian_barrier_reef',
+      wikipediaImageFetchedAt: new Date(),
+    });
+
+    await expect(service.fillMissingImage(site)).resolves.toMatchObject({
+      wikipediaImageUrl: 'https://upload.wikimedia.org/great-barrier-reef.jpg',
+      wikipediaPageUrl: 'https://en.wikipedia.org/wiki/Great_Barrier_Reef',
+    });
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps a cached image when its Wikipedia page matches the heritage', async () => {
+    const fetchSpy = jest.spyOn(global, 'fetch');
+    const service = new WikipediaMediaService(
+      repository as unknown as Repository<WorldHeritageSite>,
+      config,
+    );
+    const site = createSite({
+      nameEn: 'Great Barrier Reef',
+      wikipediaImageUrl: 'https://upload.wikimedia.org/great-barrier-reef.jpg',
+      wikipediaPageUrl: 'https://en.wikipedia.org/wiki/Great_Barrier_Reef',
+    });
+
+    await expect(service.fillMissingImage(site)).resolves.toBe(site);
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 
   it('throttles failed lookups for a day and retries stale failures', async () => {
