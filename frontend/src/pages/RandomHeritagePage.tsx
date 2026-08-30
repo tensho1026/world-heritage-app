@@ -29,6 +29,7 @@ import {
   VocabularyCapture,
 } from '../components/VocabularyCapture'
 import { buildChatGptTranslationUrl } from '../lib/chatgpt'
+import { optimizedImageUrl } from '../lib/media'
 import type {
   ArticleTranslation,
   ArticleHighlight,
@@ -120,7 +121,12 @@ export default function RandomHeritagePage() {
   } | null>(null)
   const [captureMode, setCaptureMode] = useState(false)
   const [highlightMode, setHighlightMode] = useState(false)
-  const [imageFailed, setImageFailed] = useState(false)
+  const [failedImageSiteId, setFailedImageSiteId] = useState<string | null>(
+    null,
+  )
+  const [originalImageSiteId, setOriginalImageSiteId] = useState<string | null>(
+    null,
+  )
   const [readNotice, setReadNotice] = useState<number | null>(null)
   const viewedIdRef = useRef<string | undefined>(undefined)
 
@@ -227,13 +233,16 @@ export default function RandomHeritagePage() {
     setSearchParams(nextMode === 'famous' ? { mode: 'famous' } : {})
     setPreviousId(site?.uuid)
     setRandomSequence((value) => value + 1)
+    setFailedImageSiteId(null)
+    setOriginalImageSiteId(null)
   }
 
   function showNext() {
     setTranslationDisplay(null)
     setCaptureMode(false)
     setHighlightMode(false)
-    setImageFailed(false)
+    setFailedImageSiteId(null)
+    setOriginalImageSiteId(null)
     setReadNotice(null)
     if (routeId) {
       navigate(`/random-heritage${mode === 'famous' ? '?mode=famous' : ''}`)
@@ -297,6 +306,9 @@ export default function RandomHeritagePage() {
     : storedTranslation
   const showArticleTranslation = showTranslation || showDeepLTranslation
   const imageUrl = site.wikipediaImageUrl ?? site.mainImageUrl
+  const optimizedImage = optimizedImageUrl(imageUrl, 640)
+  const imageFailed = failedImageSiteId === site.uuid
+  const imageUsingOriginal = originalImageSiteId === site.uuid
   const imageSourceUrl = site.wikipediaImageUrl
     ? site.wikipediaPageUrl
     : site.mainImageSourceUrl
@@ -326,14 +338,26 @@ export default function RandomHeritagePage() {
         <div className="grid grid-cols-[minmax(320px,0.82fr)_minmax(0,1fr)] items-center gap-[clamp(48px,7vw,100px)] max-[900px]:grid-cols-1">
           <figure className="m-0">
             <div className="aspect-[4/5] overflow-hidden bg-[#d9d0bd] shadow-[0_24px_55px_rgb(32_48_43_/_18%)]">
-              {imageUrl && !imageFailed ? (
+              {optimizedImage && !imageFailed ? (
                 <img
                   className="size-full object-cover"
                   decoding="async"
                   fetchPriority="high"
-                  src={imageUrl}
+                  src={
+                    imageUsingOriginal ? imageUrl ?? optimizedImage : optimizedImage
+                  }
                   alt={site.mainImageCaptionEn ?? site.nameEn}
-                  onError={() => setImageFailed(true)}
+                  onError={() => {
+                    if (
+                      imageUrl &&
+                      optimizedImage !== imageUrl &&
+                      !imageUsingOriginal
+                    ) {
+                      setOriginalImageSiteId(site.uuid)
+                    } else {
+                      setFailedImageSiteId(site.uuid)
+                    }
+                  }}
                 />
               ) : (
                 <ImagePlaceholder />
@@ -1178,7 +1202,7 @@ function MediaImage({ url, siteName }: { url: string; siteName: string }) {
     >
       <img
         className="size-full object-cover transition-transform duration-300 hover:scale-[1.02]"
-        src={url}
+        src={optimizedImageUrl(url, 640) ?? url}
         alt={`${siteName}の追加画像`}
         loading="lazy"
         onError={() => setFailed(true)}
