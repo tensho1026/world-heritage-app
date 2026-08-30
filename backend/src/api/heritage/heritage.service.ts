@@ -74,13 +74,13 @@ export class HeritageService {
     }
 
     void this.wikipediaMediaService.fillMissingImage(site).catch(() => undefined);
-    return this.withStoredDisplayImage(site);
+    return this.withStoredDisplayImage(site, 640);
   }
 
   async getById(id: string) {
     const site = await this.requireSite(id);
     void this.wikipediaMediaService.fillMissingImage(site).catch(() => undefined);
-    return this.withStoredDisplayImage(site);
+    return this.withStoredDisplayImage(site, 640);
   }
 
   async getImageUrl(id: string, width = 960) {
@@ -348,9 +348,9 @@ export class HeritageService {
     return site;
   }
 
-  private withStoredDisplayImage(site: WorldHeritageSite) {
+  private withStoredDisplayImage(site: WorldHeritageSite, width = 960) {
     const wikipediaImageUrl =
-      this.wikipediaMediaService.getWikipediaDisplayImageUrl(site);
+      this.wikipediaMediaService.getWikipediaDisplayImageUrl(site, width);
     return wikipediaImageUrl && wikipediaImageUrl !== site.wikipediaImageUrl
       ? { ...site, wikipediaImageUrl }
       : site;

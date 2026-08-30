@@ -33,6 +33,12 @@ export class QuizService {
     if (!site)
       throw new NotFoundException('World Heritage site was not found.');
     const distractorSites = await this.heritageRepository.find({
+      select: {
+        unescoId: true,
+        statesNames: true,
+        justificationEn: true,
+        criteriaText: true,
+      },
       where: { uuid: Not(heritageSiteId) },
       order: { unescoId: 'ASC' },
       take: 20,

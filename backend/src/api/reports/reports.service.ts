@@ -123,7 +123,10 @@ export class ReportsService {
       ]),
     ];
     const sites = siteIds.length
-      ? await this.heritageRepository.findBy({ uuid: In(siteIds) })
+      ? await this.heritageRepository.find({
+          select: { uuid: true, nameEn: true },
+          where: { uuid: In(siteIds) },
+        })
       : [];
     const siteMap = new Map(sites.map((site) => [site.uuid, site.nameEn]));
     const readCounts = new Map<string, number>();

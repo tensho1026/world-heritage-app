@@ -128,6 +128,16 @@ export class DiscoveryService {
     return this.attachLearning(sites, { imageWidth: 480 });
   }
 
+  async getMatchingSiteIds(filters: DiscoveryFilters) {
+    const sites = await this.createSearchQuery(filters)
+      .select(['site.uuid'])
+      .orderBy('site.isFeatured', 'DESC')
+      .addOrderBy('site.nameEn', 'ASC')
+      .take(2_000)
+      .getMany();
+    return sites.map((site) => site.uuid);
+  }
+
   private createSearchQuery(filters: DiscoveryFilters, mapOnly = false) {
     const query = this.heritageRepository.createQueryBuilder('site');
     const q = filters.q?.trim();

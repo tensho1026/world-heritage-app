@@ -159,9 +159,13 @@ export default function RandomHeritagePage() {
   useEffect(() => {
     if (!site || viewedIdRef.current === site.uuid) return
     viewedIdRef.current = site.uuid
-    void recordHeritageView(site.uuid)
-      .then(() => queryClient.invalidateQueries({ queryKey: ['stats'] }))
-      .catch(() => undefined)
+    // This write is useful for stats, but it is not part of the article's
+    // critical rendering path. Let the hero and first content paint first.
+    window.setTimeout(() => {
+      void recordHeritageView(site.uuid)
+        .then(() => queryClient.invalidateQueries({ queryKey: ['stats'] }))
+        .catch(() => undefined)
+    }, 250)
   }, [queryClient, site])
 
   useEffect(() => {
@@ -876,6 +880,8 @@ function ReaderSidebar({
   mutationPending: boolean
   onComprehension: (value: ComprehensionLevel) => void
 }) {
+  const [showMap, setShowMap] = useState(false)
+
   return (
     <aside className="space-y-9 border-l border-[#18352f]/15 pl-9 max-[900px]:border-0 max-[900px]:pl-0">
       <div>
@@ -910,20 +916,31 @@ function ReaderSidebar({
         </p>
         {site.latitude !== null && site.longitude !== null && (
           <div className="mt-4 overflow-hidden border border-[#18352f]/15 bg-[#e3dccd]">
-            <iframe
-              className="h-44 w-full"
-              loading="lazy"
-              src={openStreetMapEmbedUrl(site.latitude, site.longitude)}
-              title={`${site.nameEn}の地図`}
-            />
-            <a
-              className="block px-3 py-2 text-[0.6rem] text-[#18352f]/55 underline"
-              href={`https://www.openstreetmap.org/?mlat=${site.latitude}&mlon=${site.longitude}#map=8/${site.latitude}/${site.longitude}`}
-              rel="noreferrer"
-              target="_blank"
-            >
-              OpenStreetMapで開く
-            </a>
+            {showMap ? (
+              <>
+                <iframe
+                  className="h-44 w-full"
+                  src={openStreetMapEmbedUrl(site.latitude, site.longitude)}
+                  title={`${site.nameEn}の地図`}
+                />
+                <a
+                  className="block px-3 py-2 text-[0.6rem] text-[#18352f]/55 underline"
+                  href={`https://www.openstreetmap.org/?mlat=${site.latitude}&mlon=${site.longitude}#map=8/${site.latitude}/${site.longitude}`}
+                  rel="noreferrer"
+                  target="_blank"
+                >
+                  OpenStreetMapで開く
+                </a>
+              </>
+            ) : (
+              <button
+                className="h-44 w-full text-xs font-bold text-[#18352f]/65 hover:text-[#b85635]"
+                onClick={() => setShowMap(true)}
+                type="button"
+              >
+                地図を読み込む
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1064,22 +1081,38 @@ function AdditionalMedia({ site }: { site: WorldHeritageSite }) {
   )
   if (!images.length) return null
 
+  return <DeferredGallery images={images} siteName={site.nameEn} />
+}
+
+function DeferredGallery({ images, siteName }: { images: string[]; siteName: string }) {
+  const [open, setOpen] = useState(false)
+
   return (
     <section className="border-t border-[#18352f]/15 py-12">
       <p className="text-[0.62rem] font-extrabold tracking-[0.18em] text-[#b85635]">
         IMAGE GALLERY
       </p>
-      <h2 className="mt-3 font-serif text-3xl">More views</h2>
-      <div className="mt-6 grid grid-cols-3 gap-4 max-[720px]:grid-cols-2 max-[480px]:grid-cols-1">
-        {images.slice(0, 9).map((url) => (
-          <MediaImage key={url} siteName={site.nameEn} url={url} />
-        ))}
-      </div>
+      <button
+        aria-expanded={open}
+        className="mt-3 font-serif text-left text-3xl hover:text-[#b85635]"
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        More views {open ? '−' : '+'}
+      </button>
+      {open && (
+        <div className="mt-6 grid grid-cols-3 gap-4 max-[720px]:grid-cols-2 max-[480px]:grid-cols-1">
+          {images.slice(0, 9).map((url) => (
+            <MediaImage key={url} siteName={siteName} url={url} />
+          ))}
+        </div>
+      )}
     </section>
   )
 }
 
 function HeritageVideo({ site }: { site: WorldHeritageSite }) {
+  const [active, setActive] = useState(false)
   const videoUrl = site.mainVideoUrl ?? site.videoUrls[0]
   if (!videoUrl) return null
   const youtubeEmbedUrl = trustedYouTubeEmbedUrl(videoUrl)
@@ -1088,20 +1121,29 @@ function HeritageVideo({ site }: { site: WorldHeritageSite }) {
     <section className="border-t border-[#18352f]/15 py-12">
       <h2 className="font-serif text-2xl">Related video</h2>
       {youtubeEmbedUrl ? (
-        <iframe
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-          className="mt-5 aspect-video w-full bg-black"
-          loading="lazy"
-          referrerPolicy="strict-origin-when-cross-origin"
-          src={youtubeEmbedUrl}
-          title={`${site.nameEn}の関連動画`}
-        />
+        active ? (
+          <iframe
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+            allowFullScreen
+            className="mt-5 aspect-video w-full bg-black"
+            referrerPolicy="strict-origin-when-cross-origin"
+            src={youtubeEmbedUrl}
+            title={`${site.nameEn}の関連動画`}
+          />
+        ) : (
+          <button
+            className="mt-5 flex aspect-video w-full items-center justify-center bg-[#18352f] text-sm font-bold text-white hover:bg-[#315f4c]"
+            onClick={() => setActive(true)}
+            type="button"
+          >
+            関連動画を読み込む
+          </button>
+        )
       ) : (
         <video
           className="mt-5 max-h-[620px] w-full bg-black"
           controls
-          preload="metadata"
+          preload="none"
           src={videoUrl}
         />
       )}

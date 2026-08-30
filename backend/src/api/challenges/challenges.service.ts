@@ -133,10 +133,15 @@ export class ChallengesService {
         return this.filteredReads(start, endInclusive, challenge.filters);
       case ChallengeMetric.UNIQUE_SITES:
       default: {
-        const reads = await this.readRepository.find({
-          where: { readAt: range },
-        });
-        return new Set(reads.map((read) => read.heritageSiteId)).size;
+        const result = await this.readRepository
+          .createQueryBuilder('reading')
+          .select('COUNT(DISTINCT reading.heritageSiteId)', 'count')
+          .where('reading.readAt BETWEEN :start AND :end', {
+            start,
+            end: endInclusive,
+          })
+          .getRawOne<{ count: string }>();
+        return Number(result?.count ?? 0);
       }
     }
   }
@@ -144,9 +149,13 @@ export class ChallengesService {
   private async newCountries(start: Date, endInclusive: Date) {
     const [currentReads, previousReads] = await Promise.all([
       this.readRepository.find({
+        select: { heritageSiteId: true },
         where: { readAt: Between(start, endInclusive) },
       }),
-      this.readRepository.find({ where: { readAt: LessThan(start) } }),
+      this.readRepository.find({
+        select: { heritageSiteId: true },
+        where: { readAt: LessThan(start) },
+      }),
     ]);
     const ids = [
       ...new Set(
@@ -154,7 +163,10 @@ export class ChallengesService {
       ),
     ];
     if (!ids.length) return 0;
-    const sites = await this.heritageRepository.findBy({ uuid: In(ids) });
+    const sites = await this.heritageRepository.find({
+      select: { uuid: true, isoCodes: true, statesNames: true },
+      where: { uuid: In(ids) },
+    });
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
     const countriesFor = (reads: HeritageRead[]) =>
       new Set(
@@ -175,13 +187,14 @@ export class ChallengesService {
     endInclusive: Date,
     filters: ChallengeFilters,
   ) {
-    const [reads, matchingSites] = await Promise.all([
+    const [reads, matchingSiteIds] = await Promise.all([
       this.readRepository.find({
+        select: { heritageSiteId: true },
         where: { readAt: Between(start, endInclusive) },
       }),
-      this.discoveryService.search(filters),
+      this.discoveryService.getMatchingSiteIds(filters),
     ]);
-    const allowed = new Set(matchingSites.map((site) => site.uuid));
+    const allowed = new Set(matchingSiteIds);
     return new Set(
       reads
         .map((read) => read.heritageSiteId)
