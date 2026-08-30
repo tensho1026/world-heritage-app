@@ -33,8 +33,14 @@ export class HeritageController {
   @Get(':id/image')
   @Redirect()
   @Header('Cache-Control', 'public, max-age=86400, stale-while-revalidate=604800')
-  async getImage(@Param('id') id: string) {
-    return { url: await this.heritageService.getImageUrl(id), statusCode: 302 };
+  async getImage(@Param('id') id: string, @Query('width') requestedWidth?: string) {
+    const width = requestedWidth === '320' || requestedWidth === '480'
+      ? Number(requestedWidth)
+      : 960;
+    return {
+      url: await this.heritageService.getImageUrl(id, width),
+      statusCode: 302,
+    };
   }
 
   @Get(':id')

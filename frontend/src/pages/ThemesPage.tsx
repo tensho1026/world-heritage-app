@@ -58,6 +58,7 @@ export default function ThemesPage() {
                           <HeritageImage
                             fallbackClassName="size-full"
                             imageClassName="size-full object-cover opacity-80 transition-transform group-hover:scale-105"
+                            imageWidth={320}
                             siteId={theme.representativeUuid}
                             src={theme.mainImageUrl}
                           />

@@ -9,6 +9,7 @@ export function DiscoveryCard({ site }: { site: DiscoverySite }) {
         <HeritageImage
           fallbackClassName="grid size-full place-items-center text-2xl text-white/70"
           imageClassName="size-full object-cover"
+          imageWidth={480}
           siteId={site.uuid}
           src={site.mainImageUrl}
         />

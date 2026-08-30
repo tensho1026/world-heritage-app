@@ -5,9 +5,10 @@ export const apiClient = axios.create({
   timeout: 20_000,
 })
 
-export function getHeritageImageUrl(id: string) {
+export function getHeritageImageUrl(id: string, width = 960) {
   const apiBaseUrl = String(apiClient.defaults.baseURL).replace(/\/$/, '')
-  return `${apiBaseUrl}/heritage/${encodeURIComponent(id)}/image`
+  const query = width === 960 ? '' : `?width=${width}`
+  return `${apiBaseUrl}/heritage/${encodeURIComponent(id)}/image${query}`
 }
 
 export function getApiErrorMessage(error: unknown) {

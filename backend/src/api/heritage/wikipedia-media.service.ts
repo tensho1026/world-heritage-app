@@ -69,6 +69,11 @@ const TITLE_STOP_WORDS = new Set([
 
 @Injectable()
 export class WikipediaMediaService {
+  private readonly pendingLookups = new Map<
+    string,
+    Promise<WorldHeritageSite>
+  >();
+
   constructor(
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
@@ -76,6 +81,23 @@ export class WikipediaMediaService {
   ) {}
 
   async fillMissingImage(site: WorldHeritageSite): Promise<WorldHeritageSite> {
+    const pending = this.pendingLookups.get(site.uuid);
+    if (pending) return pending;
+
+    const lookup = this.lookupMissingImage(site);
+    this.pendingLookups.set(site.uuid, lookup);
+    try {
+      return await lookup;
+    } finally {
+      if (this.pendingLookups.get(site.uuid) === lookup) {
+        this.pendingLookups.delete(site.uuid);
+      }
+    }
+  }
+
+  private async lookupMissingImage(
+    site: WorldHeritageSite,
+  ): Promise<WorldHeritageSite> {
     const hasStoredWikipediaImage = Boolean(site.wikipediaImageUrl);
     if (
       this.hasRelevantWikipediaImage(site) ||
@@ -163,16 +185,19 @@ export class WikipediaMediaService {
     return site;
   }
 
-  getDisplayImageUrl(site: WorldHeritageSite) {
+  getDisplayImageUrl(site: WorldHeritageSite, width = DISPLAY_IMAGE_WIDTH) {
     if (this.isUsableMainImageUrl(site.mainImageUrl)) {
       return site.mainImageUrl;
     }
-    return this.getWikipediaDisplayImageUrl(site);
+    return this.getWikipediaDisplayImageUrl(site, width);
   }
 
-  getWikipediaDisplayImageUrl(site: WorldHeritageSite) {
+  getWikipediaDisplayImageUrl(
+    site: WorldHeritageSite,
+    width = DISPLAY_IMAGE_WIDTH,
+  ) {
     return this.hasRelevantWikipediaImage(site)
-      ? this.toWikimediaThumbnail(site.wikipediaImageUrl!)
+      ? this.toWikimediaThumbnail(site.wikipediaImageUrl!, width)
       : null;
   }
 
@@ -320,7 +345,7 @@ export class WikipediaMediaService {
     }
   }
 
-  private toWikimediaThumbnail(url: string) {
+  private toWikimediaThumbnail(url: string, width: number) {
     try {
       const parsed = new URL(url);
       const parts = parsed.pathname.split('/').filter(Boolean);
@@ -335,7 +360,7 @@ export class WikipediaMediaService {
       }
       const [firstHash, secondHash, ...fileParts] = parts.slice(2);
       const filename = fileParts.join('/');
-      const thumbnailName = `${DISPLAY_IMAGE_WIDTH}px-${filename}${filename.toLowerCase().endsWith('.svg') ? '.png' : ''}`;
+      const thumbnailName = `${width}px-${filename}${filename.toLowerCase().endsWith('.svg') ? '.png' : ''}`;
       parsed.pathname = `/wikipedia/commons/thumb/${firstHash}/${secondHash}/${filename}/${thumbnailName}`;
       parsed.search = '';
       return parsed.toString();

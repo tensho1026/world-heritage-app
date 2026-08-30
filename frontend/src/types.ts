@@ -189,6 +189,24 @@ export type DiscoverySite = {
   readCount: number
 }
 
+export type MapSiteMarker = Pick<
+  DiscoverySite,
+  'uuid' | 'latitude' | 'longitude' | 'isFeatured' | 'readCount'
+>
+
+export type MapSiteDetails = Pick<
+  DiscoverySite,
+  | 'uuid'
+  | 'nameEn'
+  | 'statesNames'
+  | 'category'
+  | 'dateInscribed'
+  | 'isFeatured'
+  | 'isFavorite'
+  | 'isReadLater'
+  | 'readCount'
+>
+
 export type DiscoverySearchPage = {
   items: DiscoverySite[]
   total: number
