@@ -7,6 +7,7 @@ type HeritageImageProps = {
   fallbackClassName: string
   loading?: 'eager' | 'lazy'
   src?: string | null
+  imageWidth?: 320 | 480 | 960
 }
 
 export function HeritageImage({
@@ -15,6 +16,7 @@ export function HeritageImage({
   fallbackClassName,
   loading = 'lazy',
   src,
+  imageWidth = 960,
 }: HeritageImageProps) {
   const [failedSiteId, setFailedSiteId] = useState<string | null>(null)
   const failed = failedSiteId === siteId
@@ -30,7 +32,7 @@ export function HeritageImage({
       decoding="async"
       loading={loading}
       onError={() => setFailedSiteId(siteId)}
-      src={src ?? getHeritageImageUrl(siteId)}
+      src={src ?? getHeritageImageUrl(siteId, imageWidth)}
     />
   )
 }

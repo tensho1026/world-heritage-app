@@ -4,8 +4,11 @@ import type {
   DiscoverySearchPage,
   DiscoverySite,
   HeritageMapProgress,
+  HeritageProgressItem,
   HeritageTimelineItem,
   HeritageTheme,
+  MapSiteDetails,
+  MapSiteMarker,
 } from '../types'
 import { apiClient } from './client'
 
@@ -32,9 +35,14 @@ export async function searchHeritage(
 }
 
 export async function getMapHeritage(filters: DiscoveryFilters) {
-  const { data } = await apiClient.get<DiscoverySite[]>('/discovery/map', {
+  const { data } = await apiClient.get<MapSiteMarker[]>('/discovery/map', {
     params: params(filters),
   })
+  return data
+}
+
+export async function getMapSite(id: string) {
+  const { data } = await apiClient.get<MapSiteDetails>(`/discovery/map/${id}`)
   return data
 }
 
@@ -60,6 +68,13 @@ export async function getRandomDiscoverySite(filters: DiscoveryFilters) {
 export async function getMapProgress() {
   const { data } = await apiClient.get<HeritageMapProgress>(
     '/discovery/progress',
+  )
+  return data
+}
+
+export async function getCountryProgress(isoCode: string) {
+  const { data } = await apiClient.get<HeritageProgressItem>(
+    `/discovery/progress/country/${encodeURIComponent(isoCode)}`,
   )
   return data
 }

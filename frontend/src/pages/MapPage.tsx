@@ -6,11 +6,13 @@ import type {
   Map as MapLibreMap,
 } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   getDiscoveryFilters,
   getMapHeritage,
+  getMapSite,
+  getCountryProgress,
   getMapProgress,
 } from '../api/discovery'
 import { AppShell } from '../components/AppShell'
@@ -18,9 +20,9 @@ import { DiscoveryFiltersPanel } from '../components/DiscoveryFiltersPanel'
 import { PageError } from '../components/AsyncState'
 import type {
   DiscoveryFilters,
-  DiscoverySite,
   HeritageMapProgress,
   HeritageProgressItem,
+  MapSiteDetails,
 } from '../types'
 
 const mapStyle =
@@ -50,14 +52,16 @@ export default function MapPage() {
     queryKey: ['heritage-map-progress'],
     queryFn: getMapProgress,
   })
-  const siteMap = useMemo(
-    () => new Map((sites.data ?? []).map((site) => [site.uuid, site])),
-    [sites.data],
-  )
-  const selected = selectedId ? siteMap.get(selectedId) : undefined
-  const selectedCountry = progress.data?.countries.find(
-    (country) => country.isoCode === selectedCountryIso,
-  )
+  const selectedSite = useQuery({
+    queryKey: ['map-site', selectedId],
+    queryFn: () => getMapSite(selectedId!),
+    enabled: Boolean(selectedId),
+  })
+  const countryProgress = useQuery({
+    queryKey: ['heritage-map-country-progress', selectedCountryIso],
+    queryFn: () => getCountryProgress(selectedCountryIso),
+    enabled: Boolean(selectedCountryIso),
+  })
 
   useEffect(() => {
     if (!mapContainer.current || mapInstance.current) return
@@ -305,7 +309,16 @@ export default function MapPage() {
           </div>
         </details>
 
-        {progress.data && <ProgressDashboard progress={progress.data} />}
+        <div
+          className="mt-6 min-h-[258px] max-[680px]:min-h-[420px]"
+          aria-busy={progress.isPending}
+        >
+          {progress.data ? (
+            <ProgressDashboard progress={progress.data} />
+          ) : progress.isPending ? (
+            <ProgressDashboardSkeleton />
+          ) : null}
+        </div>
 
         {sites.isError && (
           <PageError
@@ -323,8 +336,11 @@ export default function MapPage() {
               ? '地点を読み込み中…'
               : `${sites.data?.length ?? 0}地点`}
           </div>
-          {selected && (
-            <MapSiteCard site={selected} onClose={() => setSelectedId(null)} />
+          {selectedSite.data && (
+            <MapSiteCard
+              site={selectedSite.data}
+              onClose={() => setSelectedId(null)}
+            />
           )}
         </div>
         {progress.data && (
@@ -347,7 +363,14 @@ export default function MapPage() {
                   ))}
               </select>
             </label>
-            {selectedCountry && <CountryProgress country={selectedCountry} />}
+            {countryProgress.isPending && (
+              <p className="mt-4 text-xs text-[#18352f]/55">
+                国別の地点を読み込み中…
+              </p>
+            )}
+            {countryProgress.data && (
+              <CountryProgress country={countryProgress.data} />
+            )}
           </div>
         )}
         <p className="mt-3 text-[0.62rem] leading-5 text-[#18352f]/45">
@@ -361,7 +384,7 @@ export default function MapPage() {
 
 function ProgressDashboard({ progress }: { progress: HeritageMapProgress }) {
   return (
-    <section className="mt-6 border border-[#18352f]/15 bg-white/45 p-5">
+    <section className="border border-[#18352f]/15 bg-white/45 p-5">
       <div className="grid grid-cols-3 gap-px bg-[#18352f]/15 max-[680px]:grid-cols-1">
         <ProgressMetric
           label="世界遺産を読了"
@@ -403,6 +426,22 @@ function ProgressMetric({ label, value }: { label: string; value: string }) {
   )
 }
 
+function ProgressDashboardSkeleton() {
+  return (
+    <section className="border border-[#18352f]/15 bg-white/45 p-5">
+      <div className="grid grid-cols-3 gap-px bg-[#18352f]/15 max-[680px]:grid-cols-1">
+        {['世界遺産を読了', '読了した国', '世界全体の踏破率'].map((label) => (
+          <div className="bg-[#fbf8f1] p-4" key={label}>
+            <div className="h-9 w-24 animate-pulse bg-[#d6cec0]/70" />
+            <p className="mt-1 text-[0.65rem] text-[#18352f]/55">{label}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 h-16 animate-pulse bg-[#d6cec0]/45" />
+    </section>
+  )
+}
+
 function CountryProgress({ country }: { country: HeritageProgressItem }) {
   return (
     <section className="mt-4 border border-[#18352f]/15 bg-white/45 p-5">
@@ -441,7 +480,7 @@ function MapSiteCard({
   site,
   onClose,
 }: {
-  site: DiscoverySite
+  site: MapSiteDetails
   onClose: () => void
 }) {
   return (

@@ -73,19 +73,21 @@ export class HeritageService {
       );
     }
 
-    return this.withDisplayImage(site);
+    void this.wikipediaMediaService.fillMissingImage(site).catch(() => undefined);
+    return this.withStoredDisplayImage(site);
   }
 
   async getById(id: string) {
     const site = await this.requireSite(id);
-    return this.withDisplayImage(site);
+    void this.wikipediaMediaService.fillMissingImage(site).catch(() => undefined);
+    return this.withStoredDisplayImage(site);
   }
 
-  async getImageUrl(id: string) {
+  async getImageUrl(id: string, width = 960) {
     const site = await this.wikipediaMediaService.fillMissingImage(
       await this.requireSite(id),
     );
-    const imageUrl = this.wikipediaMediaService.getDisplayImageUrl(site);
+    const imageUrl = this.wikipediaMediaService.getDisplayImageUrl(site, width);
     if (!imageUrl) {
       throw new NotFoundException(
         'No embeddable image is available for this World Heritage site.',
@@ -201,7 +203,10 @@ export class HeritageService {
     });
     const ids = [...new Set(reads.map((read) => read.heritageSiteId))];
     const sites = ids.length
-      ? await this.heritageRepository.findBy({ uuid: In(ids) })
+      ? await this.heritageRepository.find({
+          select: this.siteSummarySelect(),
+          where: { uuid: In(ids) },
+        })
       : [];
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
 
@@ -219,6 +224,10 @@ export class HeritageService {
       memorizationVocabulary,
       uncertainVocabulary,
       savedStates,
+      uniqueViewed,
+      uniqueRead,
+      categoryRows,
+      regionRows,
     ] = await Promise.all([
       this.viewRepository.count(),
       this.readRepository.count(),
@@ -227,41 +236,45 @@ export class HeritageService {
         where: { isInMemorization: true },
       }),
       this.vocabularyRepository.count({ where: { isUncertain: true } }),
-      this.learningRepository.find(),
+      this.learningRepository.find({
+        select: {
+          heritageSiteId: true,
+          comprehensionLevel: true,
+          isFavorite: true,
+          isReadLater: true,
+        },
+      }),
+      this.viewRepository
+        .createQueryBuilder('view')
+        .select('COUNT(DISTINCT view.heritageSiteId)', 'count')
+        .getRawOne<{ count: string }>(),
+      this.readRepository
+        .createQueryBuilder('read')
+        .select('COUNT(DISTINCT read.heritageSiteId)', 'count')
+        .getRawOne<{ count: string }>(),
+      this.readRepository
+        .createQueryBuilder('read')
+        .innerJoin(
+          WorldHeritageSite,
+          'site',
+          'site.uuid = read.heritageSiteId',
+        )
+        .select('site.category', 'label')
+        .addSelect('COUNT(DISTINCT read.heritageSiteId)', 'count')
+        .groupBy('site.category')
+        .getRawMany<{ label: string; count: string }>(),
+      this.readRepository
+        .createQueryBuilder('read')
+        .innerJoin(
+          WorldHeritageSite,
+          'site',
+          'site.uuid = read.heritageSiteId',
+        )
+        .select("COALESCE(site.region, 'Unknown')", 'label')
+        .addSelect('COUNT(DISTINCT read.heritageSiteId)', 'count')
+        .groupBy('site.region')
+        .getRawMany<{ label: string; count: string }>(),
     ]);
-    const [uniqueViewed, uniqueRead, categoryRows, regionRows] =
-      await Promise.all([
-        this.viewRepository
-          .createQueryBuilder('view')
-          .select('COUNT(DISTINCT view.heritageSiteId)', 'count')
-          .getRawOne<{ count: string }>(),
-        this.readRepository
-          .createQueryBuilder('read')
-          .select('COUNT(DISTINCT read.heritageSiteId)', 'count')
-          .getRawOne<{ count: string }>(),
-        this.readRepository
-          .createQueryBuilder('read')
-          .innerJoin(
-            WorldHeritageSite,
-            'site',
-            'site.uuid = read.heritageSiteId',
-          )
-          .select('site.category', 'label')
-          .addSelect('COUNT(DISTINCT read.heritageSiteId)', 'count')
-          .groupBy('site.category')
-          .getRawMany<{ label: string; count: string }>(),
-        this.readRepository
-          .createQueryBuilder('read')
-          .innerJoin(
-            WorldHeritageSite,
-            'site',
-            'site.uuid = read.heritageSiteId',
-          )
-          .select("COALESCE(site.region, 'Unknown')", 'label')
-          .addSelect('COUNT(DISTINCT read.heritageSiteId)', 'count')
-          .groupBy('site.region')
-          .getRawMany<{ label: string; count: string }>(),
-      ]);
 
     const comprehension = Object.values(ComprehensionLevel).reduce(
       (counts, level) => {
@@ -298,7 +311,10 @@ export class HeritageService {
 
     if (!ids.length) return [];
 
-    const sites = await this.heritageRepository.findBy({ uuid: In(ids) });
+    const sites = await this.heritageRepository.find({
+      select: this.siteSummarySelect(),
+      where: { uuid: In(ids) },
+    });
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
     return states.flatMap((state) => {
       const site = siteMap.get(state.heritageSiteId);
@@ -332,13 +348,12 @@ export class HeritageService {
     return site;
   }
 
-  private async withDisplayImage(site: WorldHeritageSite) {
-    const enriched = await this.wikipediaMediaService.fillMissingImage(site);
+  private withStoredDisplayImage(site: WorldHeritageSite) {
     const wikipediaImageUrl =
-      this.wikipediaMediaService.getWikipediaDisplayImageUrl(enriched);
-    return wikipediaImageUrl && wikipediaImageUrl !== enriched.wikipediaImageUrl
-      ? { ...enriched, wikipediaImageUrl }
-      : enriched;
+      this.wikipediaMediaService.getWikipediaDisplayImageUrl(site);
+    return wikipediaImageUrl && wikipediaImageUrl !== site.wikipediaImageUrl
+      ? { ...site, wikipediaImageUrl }
+      : site;
   }
 
   private toSiteSummary(site: WorldHeritageSite) {
@@ -349,9 +364,24 @@ export class HeritageService {
       category: site.category,
       statesNames: site.statesNames,
       region: site.region,
-      mainImageUrl: this.wikipediaMediaService.getDisplayImageUrl(site),
+      mainImageUrl: this.wikipediaMediaService.getDisplayImageUrl(site, 480),
       dateInscribed: site.dateInscribed,
     };
+  }
+
+  private siteSummarySelect() {
+    return {
+      uuid: true,
+      unescoId: true,
+      nameEn: true,
+      category: true,
+      statesNames: true,
+      region: true,
+      dateInscribed: true,
+      mainImageUrl: true,
+      wikipediaImageUrl: true,
+      wikipediaPageUrl: true,
+    } as const;
   }
 
   private rowsToRecord(rows: { label: string; count: string }[]) {

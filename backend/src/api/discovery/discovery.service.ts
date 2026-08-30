@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import {
@@ -36,6 +40,16 @@ type ThemeSummary = ThemeDefinition & {
   count: number;
   representativeUuid: string | null;
   mainImageUrl: string | null;
+};
+
+type ThemeCountRow = { slug: string; count: string };
+type ThemeRepresentativeRow = {
+  slug: string;
+  uuid: string;
+  nameEn: string;
+  mainImageUrl: string | null;
+  wikipediaImageUrl: string | null;
+  wikipediaPageUrl: string | null;
 };
 
 @Injectable()
@@ -80,7 +94,7 @@ export class DiscoveryService {
       .getManyAndCount();
 
     return {
-      items: await this.attachLearning(sites),
+      items: await this.attachLearning(sites, { imageWidth: 480 }),
       total,
       page,
       pageSize,
@@ -92,10 +106,6 @@ export class DiscoveryService {
     const query = this.createSearchQuery(filters, true);
     query.select([
       'site.uuid',
-      'site.nameEn',
-      'site.statesNames',
-      'site.category',
-      'site.dateInscribed',
       'site.latitude',
       'site.longitude',
       'site.isFeatured',
@@ -105,7 +115,7 @@ export class DiscoveryService {
       .addOrderBy('site.nameEn', 'ASC')
       .take(2_000)
       .getMany();
-    return this.attachLearning(sites);
+    return this.attachLearning(sites, { compact: true });
   }
 
   async search(filters: DiscoveryFilters, mapOnly = false) {
@@ -115,7 +125,7 @@ export class DiscoveryService {
       .addOrderBy('site.nameEn', 'ASC')
       .take(2_000)
       .getMany();
-    return this.attachLearning(sites);
+    return this.attachLearning(sites, { imageWidth: 480 });
   }
 
   private createSearchQuery(filters: DiscoveryFilters, mapOnly = false) {
@@ -247,29 +257,70 @@ export class DiscoveryService {
   }
 
   private async loadThemes(): Promise<ThemeSummary[]> {
-    return Promise.all(
-      heritageThemes.map(async (theme) => {
-        const countQuery = this.heritageRepository.createQueryBuilder('site');
-        const imageQuery = this.heritageRepository.createQueryBuilder('site');
-        this.applyTheme(countQuery, theme);
-        this.applyTheme(imageQuery, theme);
-        const [count, representative] = await Promise.all([
-          countQuery.getCount(),
-          imageQuery
-            .orderBy('site.isFeatured', 'DESC')
-            .addOrderBy('site.nameEn', 'ASC')
-            .getOne(),
-        ]);
-        return {
-          ...theme,
-          count,
-          representativeUuid: representative?.uuid ?? null,
-          mainImageUrl: representative
-            ? this.wikipediaMediaService.getDisplayImageUrl(representative)
-            : null,
-        };
-      }),
+    // Keep all theme counts and representatives in two database round trips.
+    // The previous implementation issued two queries per theme, which made a
+    // cold /discovery/themes request wait on 34 independent queries.
+    const countParameters: string[] = [];
+    const countSql = heritageThemes
+      .map((theme) => {
+        const slug = this.addThemeParameter(countParameters, theme.slug);
+        const condition = this.themeSqlCondition(theme, (value) =>
+          this.addThemeParameter(countParameters, value),
+        );
+        return `SELECT ${slug}::text AS slug, COUNT(*)::text AS count FROM world_heritage_site site WHERE ${condition}`;
+      })
+      .join(' UNION ALL ');
+    const representativeParameters: string[] = [];
+    const representativeSql = heritageThemes
+      .map((theme) => {
+        const slug = this.addThemeParameter(
+          representativeParameters,
+          theme.slug,
+        );
+        const condition = this.themeSqlCondition(theme, (value) =>
+          this.addThemeParameter(representativeParameters, value),
+        );
+        return `(SELECT ${slug}::text AS slug, site."uuid"::text AS uuid, site."nameEn" AS "nameEn", site."mainImageUrl" AS "mainImageUrl", site."wikipediaImageUrl" AS "wikipediaImageUrl", site."wikipediaPageUrl" AS "wikipediaPageUrl" FROM world_heritage_site site WHERE ${condition} ORDER BY site."isFeatured" DESC, site."nameEn" ASC LIMIT 1)`;
+      })
+      .join(' UNION ALL ');
+
+    const [countRows, representativeRows] = await Promise.all([
+      this.heritageRepository.query(countSql, countParameters) as Promise<
+        ThemeCountRow[]
+      >,
+      this.heritageRepository.query(
+        representativeSql,
+        representativeParameters,
+      ) as Promise<ThemeRepresentativeRow[]>,
+    ]);
+    const counts = new Map(countRows.map((row) => [row.slug, Number(row.count)]));
+    const representatives = new Map(
+      representativeRows.map((row) => [row.slug, row]),
     );
+
+    return heritageThemes.map((theme) => {
+      const representative = representatives.get(theme.slug);
+      const representativeSite = representative
+        ? ({
+            uuid: representative.uuid,
+            nameEn: representative.nameEn,
+            mainImageUrl: representative.mainImageUrl,
+            wikipediaImageUrl: representative.wikipediaImageUrl,
+            wikipediaPageUrl: representative.wikipediaPageUrl,
+          } as WorldHeritageSite)
+        : null;
+      return {
+        ...theme,
+        count: counts.get(theme.slug) ?? 0,
+        representativeUuid: representative?.uuid ?? null,
+        mainImageUrl: representativeSite
+          ? this.wikipediaMediaService.getDisplayImageUrl(
+              representativeSite,
+              320,
+            )
+          : null,
+      };
+    });
   }
 
   async getRandom(filters: DiscoveryFilters) {
@@ -286,7 +337,26 @@ export class DiscoveryService {
       .limit(1)
       .getOne();
     if (!site) return null;
-    return (await this.attachLearning([site]))[0];
+    return (await this.attachLearning([site], { imageWidth: 480 }))[0];
+  }
+
+  async getMapSite(id: string) {
+    const site = await this.heritageRepository.findOne({
+      select: {
+        uuid: true,
+        nameEn: true,
+        statesNames: true,
+        category: true,
+        dateInscribed: true,
+        isFeatured: true,
+        latitude: true,
+        longitude: true,
+      },
+      where: { uuid: id },
+    });
+    if (!site) throw new NotFoundException('World Heritage site was not found.');
+    const [result] = await this.attachLearning([site], { includeImage: false });
+    return result;
   }
 
   async getProgress() {
@@ -312,7 +382,6 @@ export class DiscoveryService {
       isoCode?: string;
       siteIds: Set<string>;
       readIds: Set<string>;
-      sites: Array<{ uuid: string; nameEn: string; read: boolean }>;
     };
     const countries = new Map<string, ProgressBucket>();
     const regions = new Map<string, ProgressBucket>();
@@ -327,11 +396,9 @@ export class DiscoveryService {
           isoCode,
           siteIds: new Set<string>(),
           readIds: new Set<string>(),
-          sites: [],
         };
         if (!bucket.siteIds.has(site.uuid)) {
           bucket.siteIds.add(site.uuid);
-          bucket.sites.push({ uuid: site.uuid, nameEn: site.nameEn, read });
         }
         if (read) bucket.readIds.add(site.uuid);
         countries.set(key, bucket);
@@ -341,17 +408,15 @@ export class DiscoveryService {
         name: regionName,
         siteIds: new Set<string>(),
         readIds: new Set<string>(),
-        sites: [],
       };
       if (!region.siteIds.has(site.uuid)) {
         region.siteIds.add(site.uuid);
-        region.sites.push({ uuid: site.uuid, nameEn: site.nameEn, read });
       }
       if (read) region.readIds.add(site.uuid);
       regions.set(regionName, region);
     }
 
-    const serialize = (bucket: ProgressBucket, includeSites = true) => ({
+    const serialize = (bucket: ProgressBucket) => ({
       name: bucket.name,
       ...(bucket.isoCode ? { isoCode: bucket.isoCode } : {}),
       total: bucket.siteIds.size,
@@ -359,7 +424,7 @@ export class DiscoveryService {
       percentage: bucket.siteIds.size
         ? Math.round((bucket.readIds.size / bucket.siteIds.size) * 100)
         : 0,
-      sites: includeSites ? bucket.sites : [],
+      sites: [],
     });
     return {
       totalSites: sites.length,
@@ -368,8 +433,76 @@ export class DiscoveryService {
       readCountries: [...countries.values()].filter(
         (country) => country.readIds.size > 0,
       ).length,
-      countries: [...countries.values()].map((country) => serialize(country)),
-      regions: [...regions.values()].map((region) => serialize(region, false)),
+      countries: [...countries.values()].map((country) =>
+        serialize(country),
+      ),
+      regions: [...regions.values()].map((region) => serialize(region)),
+    };
+  }
+
+  async getCountryProgress(isoCode: string) {
+    const normalizedIsoCode = isoCode.trim().toUpperCase();
+    if (!/^[A-Z]{2}$/.test(normalizedIsoCode)) {
+      throw new BadRequestException('Invalid country code.');
+    }
+
+    const sites = await this.heritageRepository
+      .createQueryBuilder('site')
+      .where(':isoCode = ANY(site.isoCodes)', { isoCode: normalizedIsoCode })
+      .select([
+        'site.uuid',
+        'site.nameEn',
+        'site.statesNames',
+        'site.isoCodes',
+      ])
+      .orderBy('site.nameEn', 'ASC')
+      .getMany();
+    if (!sites.length) {
+      throw new NotFoundException('Country progress was not found.');
+    }
+
+    const ids = sites.map((site) => site.uuid);
+    const readRows = await this.readRepository
+      .createQueryBuilder('reading')
+      .select('DISTINCT reading.heritageSiteId', 'heritageSiteId')
+      .where('reading.heritageSiteId IN (:...ids)', { ids })
+      .getRawMany<{ heritageSiteId: string }>();
+    const readIds = new Set(readRows.map((row) => row.heritageSiteId));
+    const countrySites = sites.flatMap((site) => {
+      const index = site.isoCodes.findIndex(
+        (value) => value.toUpperCase() === normalizedIsoCode,
+      );
+      return index >= 0
+        ? [
+            {
+              uuid: site.uuid,
+              nameEn: site.nameEn,
+              read: readIds.has(site.uuid),
+            },
+          ]
+        : [];
+    });
+    const read = countrySites.filter((site) => site.read).length;
+    const matchingSite = sites.find((site) =>
+      site.isoCodes.some((value) => value.toUpperCase() === normalizedIsoCode),
+    );
+    const matchingIndex = matchingSite?.isoCodes.findIndex(
+      (value) => value.toUpperCase() === normalizedIsoCode,
+    );
+    const name =
+      matchingSite && matchingIndex !== undefined && matchingIndex >= 0
+        ? matchingSite.statesNames[matchingIndex]
+        : normalizedIsoCode;
+
+    return {
+      name,
+      isoCode: normalizedIsoCode,
+      total: countrySites.length,
+      read,
+      percentage: countrySites.length
+        ? Math.round((read / countrySites.length) * 100)
+        : 0,
+      sites: countrySites,
     };
   }
 
@@ -380,8 +513,6 @@ export class DiscoveryService {
         'site.unescoId',
         'site.nameEn',
         'site.shortDescriptionEn',
-        'site.descriptionEn',
-        'site.justificationEn',
         'site.statesNames',
         'site.category',
         'site.dateInscribed',
@@ -398,6 +529,25 @@ export class DiscoveryService {
       .addOrderBy('site.nameEn', 'ASC')
       .take(2_000)
       .getMany();
+    const sitesNeedingText = sites.filter(
+      (site) =>
+        !site.historicalPeriods?.length && site.historicalPeriodStart == null,
+    );
+    const textById = new Map<string, Partial<WorldHeritageSite>>();
+    if (sitesNeedingText.length) {
+      const contextSites = await this.heritageRepository.find({
+        select: {
+          uuid: true,
+          shortDescriptionEn: true,
+          descriptionEn: true,
+          justificationEn: true,
+        },
+        where: { uuid: In(sitesNeedingText.map((site) => site.uuid)) },
+      });
+      for (const contextSite of contextSites) {
+        textById.set(contextSite.uuid, contextSite);
+      }
+    }
     return sites.map((site) => ({
       uuid: site.uuid,
       nameEn: site.nameEn,
@@ -405,7 +555,10 @@ export class DiscoveryService {
       statesNames: site.statesNames,
       category: site.category,
       dateInscribed: site.dateInscribed,
-      historicalPeriods: this.historicalPeriods(site),
+      historicalPeriods: this.historicalPeriods({
+        ...site,
+        ...(textById.get(site.uuid) ?? {}),
+      }),
     }));
   }
 
@@ -449,6 +602,42 @@ export class DiscoveryService {
     if (theme.transboundary) {
       query.andWhere('site.transboundary = true');
     }
+  }
+
+  private addThemeParameter(parameters: string[], value: string) {
+    parameters.push(value);
+    return `$${parameters.length}`;
+  }
+
+  private themeSqlCondition(
+    theme: ThemeDefinition,
+    addParameter: (value: string) => string,
+  ) {
+    const conditions: string[] = [];
+    if (theme.country) {
+      conditions.push(
+        `${addParameter(theme.country)} = ANY(site."statesNames")`,
+      );
+    }
+    if (theme.keywords?.length) {
+      conditions.push(
+        `(${theme.keywords
+          .map((keyword) => {
+            const pattern = addParameter(`%${keyword}%`);
+            return `(site."nameEn" ILIKE ${pattern} OR COALESCE(site."descriptionEn", '') ILIKE ${pattern})`;
+          })
+          .join(' OR ')})`,
+      );
+    }
+    if (theme.category) {
+      conditions.push(`site."category" = ${addParameter(theme.category)}`);
+    }
+    if (theme.region) {
+      conditions.push(`site."region" = ${addParameter(theme.region)}`);
+    }
+    if (theme.danger) conditions.push('site."danger" = true');
+    if (theme.transboundary) conditions.push('site."transboundary" = true');
+    return conditions.length ? conditions.join(' AND ') : 'TRUE';
   }
 
   private historicalPeriods(site: WorldHeritageSite) {
@@ -524,7 +713,14 @@ export class DiscoveryService {
     return Number.isInteger(parsed) && parsed > 0 ? parsed : fallback;
   }
 
-  private async attachLearning(sites: WorldHeritageSite[]) {
+  private async attachLearning(
+    sites: WorldHeritageSite[],
+    options: {
+      compact?: boolean;
+      imageWidth?: number;
+      includeImage?: boolean;
+    } = {},
+  ) {
     if (!sites.length) return [];
     const ids = sites.map((site) => site.uuid);
     const [states, readRows] = await Promise.all([
@@ -543,6 +739,16 @@ export class DiscoveryService {
     const readMap = new Map(
       readRows.map((row) => [row.heritageSiteId, Number(row.readCount)]),
     );
+    if (options.compact) {
+      return sites.map((site) => ({
+        uuid: site.uuid,
+        latitude: site.latitude,
+        longitude: site.longitude,
+        isFeatured: site.isFeatured,
+        readCount: readMap.get(site.uuid) ?? 0,
+      }));
+    }
+
     return sites.map((site) => ({
       uuid: site.uuid,
       nameEn: site.nameEn,
@@ -555,7 +761,13 @@ export class DiscoveryService {
       latitude: site.latitude,
       longitude: site.longitude,
       isFeatured: site.isFeatured,
-      mainImageUrl: this.wikipediaMediaService.getDisplayImageUrl(site),
+      mainImageUrl:
+        options.includeImage === false
+          ? null
+          : this.wikipediaMediaService.getDisplayImageUrl(
+              site,
+              options.imageWidth ?? 480,
+            ),
       comprehensionLevel: stateMap.get(site.uuid)?.comprehensionLevel ?? null,
       isFavorite: stateMap.get(site.uuid)?.isFavorite ?? false,
       isReadLater: stateMap.get(site.uuid)?.isReadLater ?? false,

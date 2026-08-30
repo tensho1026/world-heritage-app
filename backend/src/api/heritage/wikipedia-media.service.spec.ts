@@ -93,6 +93,9 @@ describe('WikipediaMediaService', () => {
     expect(service.getWikipediaDisplayImageUrl(site)).toBe(
       'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Kernave_mounds.jpg/960px-Kernave_mounds.jpg',
     );
+    expect(service.getWikipediaDisplayImageUrl(site, 320)).toBe(
+      'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cc/Kernave_mounds.jpg/320px-Kernave_mounds.jpg',
+    );
   });
 
   it('rejects a lookalike host when validating a Wikipedia source page', () => {

@@ -1,4 +1,4 @@
-import { Controller, Get, Header, Query } from '@nestjs/common';
+import { Controller, Get, Header, Param, Query } from '@nestjs/common';
 import { DiscoveryFilters, DiscoveryService } from './discovery.service';
 
 @Controller('discovery')
@@ -15,6 +15,11 @@ export class DiscoveryController {
     return this.discoveryService.searchMap(filters);
   }
 
+  @Get('map/:id')
+  mapSite(@Param('id') id: string) {
+    return this.discoveryService.getMapSite(id);
+  }
+
   @Get('filters')
   @Header('Cache-Control', 'private, max-age=300')
   filters() {
@@ -29,6 +34,11 @@ export class DiscoveryController {
   @Get('progress')
   progress() {
     return this.discoveryService.getProgress();
+  }
+
+  @Get('progress/country/:isoCode')
+  countryProgress(@Param('isoCode') isoCode: string) {
+    return this.discoveryService.getCountryProgress(isoCode);
   }
 
   @Get('timeline')
