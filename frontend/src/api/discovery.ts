@@ -12,6 +12,13 @@ import type {
 } from '../types'
 import { apiClient } from './client'
 
+export type MapViewport = {
+  west: number
+  south: number
+  east: number
+  north: number
+}
+
 function params(filters: DiscoveryFilters) {
   return Object.fromEntries(
     Object.entries(filters).filter(
@@ -34,9 +41,12 @@ export async function searchHeritage(
   return data
 }
 
-export async function getMapHeritage(filters: DiscoveryFilters) {
+export async function getMapHeritage(
+  filters: DiscoveryFilters,
+  viewport: MapViewport,
+) {
   const { data } = await apiClient.get<MapSiteMarker[]>('/discovery/map', {
-    params: params(filters),
+    params: { ...params(filters), ...viewport },
   })
   return data
 }
