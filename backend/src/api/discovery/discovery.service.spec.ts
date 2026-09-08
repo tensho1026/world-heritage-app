@@ -145,7 +145,30 @@ describe('DiscoveryService progress and timeline', () => {
     await expect(service.getRandom({})).resolves.toMatchObject({
       uuid: shared.uuid,
     });
-    expect(heritageQuery.orderBy).toHaveBeenCalledWith('RANDOM()');
+    expect(heritageQuery.orderBy).toHaveBeenCalledWith('site.uuid', 'ASC');
     expect(heritageQuery.limit).toHaveBeenCalledWith(1);
+  });
+
+  it('limits map queries to the requested viewport', async () => {
+    heritageQuery.getMany.mockResolvedValue([shared]);
+
+    await expect(
+      service.searchMap({
+        west: '1',
+        south: '2',
+        east: '3',
+        north: '4',
+      }),
+    ).resolves.toEqual([
+      expect.objectContaining({ uuid: shared.uuid }),
+    ]);
+    expect(heritageQuery.andWhere).toHaveBeenCalledWith(
+      'site.latitude BETWEEN :south AND :north',
+      { south: 2, north: 4 },
+    );
+    expect(heritageQuery.andWhere).toHaveBeenCalledWith(
+      'site.longitude BETWEEN :west AND :east',
+      { west: 1, east: 3 },
+    );
   });
 });
