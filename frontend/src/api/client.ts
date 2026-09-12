@@ -14,8 +14,13 @@ export function getHeritageImageUrl(id: string, width = 960) {
 export function getApiErrorMessage(error: unknown) {
   if (axios.isAxiosError(error)) {
     const message = error.response?.data?.message
-    if (Array.isArray(message)) return message.join(' ')
-    if (typeof message === 'string') return message
+    const retryAfter = error.response?.data?.retryAfterSeconds
+    const retryMessage =
+      typeof retryAfter === 'number'
+        ? ` 約${retryAfter}秒後に再試行できます。`
+        : ''
+    if (Array.isArray(message)) return `${message.join(' ')}${retryMessage}`
+    if (typeof message === 'string') return `${message}${retryMessage}`
   }
   return '通信に失敗しました。時間をおいて、もう一度お試しください。'
 }

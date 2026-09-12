@@ -1,12 +1,22 @@
-import { Body, Controller, Get, Param, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+} from '@nestjs/common';
 import { QuizService } from './quiz.service';
+import { SubmitQuizAttemptDto } from './quiz.dto';
 
 @Controller('heritage/:heritageSiteId/quiz')
 export class QuizController {
   constructor(private readonly quizService: QuizService) {}
 
   @Get()
-  async getQuiz(@Param('heritageSiteId') heritageSiteId: string) {
+  async getQuiz(
+    @Param('heritageSiteId', ParseUUIDPipe) heritageSiteId: string,
+  ) {
     const quiz = await this.quizService.getQuiz(heritageSiteId);
     return {
       ...quiz,
@@ -20,15 +30,15 @@ export class QuizController {
   }
 
   @Get('history')
-  getHistory(@Param('heritageSiteId') heritageSiteId: string) {
+  getHistory(@Param('heritageSiteId', ParseUUIDPipe) heritageSiteId: string) {
     return this.quizService.getHistory(heritageSiteId);
   }
 
   @Post('attempts')
   submit(
-    @Param('heritageSiteId') heritageSiteId: string,
-    @Body('answers') answers: unknown,
+    @Param('heritageSiteId', ParseUUIDPipe) heritageSiteId: string,
+    @Body() input: SubmitQuizAttemptDto,
   ) {
-    return this.quizService.submit(heritageSiteId, answers);
+    return this.quizService.submit(heritageSiteId, input.answers);
   }
 }

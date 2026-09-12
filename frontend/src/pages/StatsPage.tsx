@@ -1,12 +1,13 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getHistory, getStats } from '../api/heritage'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
 import type { ComprehensionLevel } from '../types'
 import { LearningCalendarPanel } from '../components/LearningCalendarPanel'
 import { WeeklyReportPanel } from '../components/WeeklyReportPanel'
+import { Pagination } from '../components/Pagination'
 
 const comprehensionLabels: Record<ComprehensionLevel, string> = {
   difficult: '難しかった',
@@ -15,8 +16,13 @@ const comprehensionLabels: Record<ComprehensionLevel, string> = {
 }
 
 export default function StatsPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const historyPage = Math.max(1, Number(searchParams.get('historyPage')) || 1)
   const stats = useQuery({ queryKey: ['stats'], queryFn: getStats })
-  const history = useQuery({ queryKey: ['history'], queryFn: getHistory })
+  const history = useQuery({
+    queryKey: ['history', historyPage],
+    queryFn: () => getHistory(historyPage),
+  })
 
   if (stats.isPending || history.isPending) {
     return (
@@ -110,9 +116,9 @@ export default function StatsPage() {
 
         <section className="mt-14">
           <h2 className="font-serif text-3xl">最近の読了履歴</h2>
-          {history.data?.length ? (
+          {history.data?.items.length ? (
             <ol className="mt-6 divide-y divide-[#18352f]/15 border-y border-[#18352f]/15">
-              {history.data.map((item) => (
+              {history.data.items.map((item) => (
                 <li key={item.id}>
                   <Link
                     className="grid grid-cols-[100px_1fr_auto] items-center gap-5 py-4 text-sm hover:text-[#b85635] max-[600px]:grid-cols-1 max-[600px]:gap-1"
@@ -135,6 +141,16 @@ export default function StatsPage() {
             <p className="mt-5 text-sm text-[#18352f]/50">
               まだ読了履歴はありません。
             </p>
+          )}
+          {history.data && (
+            <Pagination
+              onChange={(page) =>
+                setSearchParams(page === 1 ? {} : { historyPage: String(page) })
+              }
+              page={history.data.page}
+              total={history.data.total}
+              totalPages={history.data.totalPages}
+            />
           )}
         </section>
       </section>

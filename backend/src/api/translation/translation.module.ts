@@ -6,10 +6,23 @@ import { DeepLService } from './deepl.service';
 import { LibreTranslateService } from './libretranslate.service';
 import { TranslationController } from './translation.controller';
 import { TranslationService } from './translation.service';
+import { TranslationRateLimit } from '../../database/entities/translation-rate-limit.entity';
+import { TranslationRateLimitService } from './translation-rate-limit.service';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([WorldHeritageSite, TranslationCache])],
+  imports: [
+    TypeOrmModule.forFeature([
+      WorldHeritageSite,
+      TranslationCache,
+      TranslationRateLimit,
+    ]),
+  ],
   controllers: [TranslationController],
-  providers: [TranslationService, LibreTranslateService, DeepLService],
+  providers: [
+    TranslationService,
+    LibreTranslateService,
+    DeepLService,
+    TranslationRateLimitService,
+  ],
 })
 export class TranslationModule {}

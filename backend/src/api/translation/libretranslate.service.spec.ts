@@ -11,6 +11,7 @@ describe('LibreTranslateService', () => {
     upsert: jest.fn(),
   };
 
+  beforeEach(() => jest.clearAllMocks());
   afterEach(() => jest.restoreAllMocks());
 
   it('uses stored LibreTranslate results without making a request', async () => {
@@ -63,6 +64,41 @@ describe('LibreTranslateService', () => {
         expect.objectContaining({
           provider: 'libretranslate',
           translatedText: '世界遺産',
+        }),
+      ],
+      expect.any(Object),
+    );
+  });
+
+  it('includes context in the request and cache key', async () => {
+    cacheRepository.find.mockResolvedValue([]);
+    cacheRepository.upsert.mockResolvedValue(undefined);
+    const fetchSpy = jest.spyOn(global, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        translatedText: ['土手\n\n--- コンテキスト ---\n彼らは川岸に座った。'],
+      }),
+    } as Response);
+    const service = new LibreTranslateService(
+      cacheRepository as unknown as Repository<TranslationCache>,
+      { get: jest.fn() } as unknown as ConfigService,
+    );
+
+    await expect(
+      service.translateTexts(['bank'], 'They sat on the river bank.'),
+    ).resolves.toEqual(['土手']);
+
+    const request = fetchSpy.mock.calls[0][1] as RequestInit;
+    expect(JSON.parse(String(request.body))).toMatchObject({
+      q: ['bank\n\n--- CONTEXT ---\nThey sat on the river bank.'],
+    });
+    expect(cacheRepository.upsert).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          sourceTextHash: createHash('sha256')
+            .update('bank\u0000They sat on the river bank.')
+            .digest('hex'),
+          translatedText: '土手',
         }),
       ],
       expect.any(Object),

@@ -85,9 +85,10 @@ export class TranslationService {
       throw new BadRequestException('The source sentence is too long.');
     }
 
-    const [translationJa] = await this.libreTranslateService.translateTexts([
-      normalizedExpression,
-    ]);
+    const [translationJa] = await this.libreTranslateService.translateTexts(
+      [normalizedExpression],
+      sourceSentenceEn.trim(),
+    );
     return { translationJa };
   }
 }

@@ -71,7 +71,18 @@ async function mockHomeApi(page: Page) {
       },
     }),
   )
-  await page.route('**/api/history', (route) => route.fulfill({ json: [] }))
+  await page.route('**/api/history**', (route) =>
+    route.fulfill({
+      json: {
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 5,
+        totalPages: 1,
+        hasNextPage: false,
+      },
+    }),
+  )
   await page.route('**/api/vocabulary/review/summary', (route) =>
     route.fulfill({
       json: { dueToday: 2, reviewedToday: 0, upcomingWeek: 1 },
@@ -146,6 +157,9 @@ test('renders a random heritage reader with learning actions', async ({
   await expect(
     page.getByRole('button', { name: '英文をハイライト' }),
   ).toBeVisible()
+  await expect(page.getByRole('button', { name: '▶ 読み上げ' })).toBeVisible()
+  await expect(page.getByText('一文ずつ聞いて声に出す')).toBeVisible()
+  await expect(page.getByText('音だけを頼りに一文を書き取る')).toBeVisible()
   await expect(page.getByRole('button', { name: 'B1' })).toHaveCount(0)
   await page.getByRole('button', { name: '日本語訳を表示' }).click()
   await expect(page.getByText(heritage.nameJa)).toBeVisible()
@@ -483,6 +497,20 @@ test('shows country and regional reading progress on the map page', async ({
             percentage: 23,
             sites: [],
           },
+        ],
+      },
+    }),
+  )
+  await page.route('**/api/discovery/progress/country/JP', (route) =>
+    route.fulfill({
+      json: {
+        name: 'Japan',
+        isoCode: 'JP',
+        total: 5,
+        read: 2,
+        percentage: 40,
+        sites: [
+          { uuid: heritage.uuid, nameEn: 'Himeji Castle', read: true },
         ],
       },
     }),

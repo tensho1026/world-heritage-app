@@ -1,28 +1,41 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Post, Req } from '@nestjs/common';
+import type { Request } from 'express';
 import { TranslationService } from './translation.service';
+import { TranslateArticleDto, TranslateSelectionDto } from './translation.dto';
+import { TranslationRateLimitService } from './translation-rate-limit.service';
 
 @Controller('translations')
 export class TranslationController {
-  constructor(private readonly translationService: TranslationService) {}
+  constructor(
+    private readonly translationService: TranslationService,
+    private readonly rateLimitService: TranslationRateLimitService,
+  ) {}
 
   @Post('article')
-  translateArticle(@Body('heritageSiteId') heritageSiteId: string) {
-    return this.translationService.translateArticle(heritageSiteId);
+  translateArticle(@Body() input: TranslateArticleDto) {
+    return this.translationService.translateArticle(input.heritageSiteId);
   }
 
   @Post('article/deepl')
-  translateArticleWithDeepL(@Body('heritageSiteId') heritageSiteId: string) {
-    return this.translationService.translateArticleWithDeepL(heritageSiteId);
+  async translateArticleWithDeepL(
+    @Body() input: TranslateArticleDto,
+    @Req() request: Request,
+  ) {
+    await this.rateLimitService.consume(request.ip ?? 'unknown', 'article');
+    return this.translationService.translateArticleWithDeepL(
+      input.heritageSiteId,
+    );
   }
 
   @Post('selection')
-  translateSelection(
-    @Body('expression') expression: unknown,
-    @Body('sourceSentenceEn') sourceSentenceEn: unknown,
+  async translateSelection(
+    @Body() input: TranslateSelectionDto,
+    @Req() request: Request,
   ) {
+    await this.rateLimitService.consume(request.ip ?? 'unknown', 'selection');
     return this.translationService.translateSelection(
-      expression,
-      sourceSentenceEn,
+      input.expression,
+      input.sourceSentenceEn,
     );
   }
 }

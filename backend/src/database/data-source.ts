@@ -10,6 +10,7 @@ import { AddHistoricalPeriods1760000005000 } from './migrations/1760000005000-Ad
 import { AddPracticeAttempts1760000006000 } from './migrations/1760000006000-AddPracticeAttempts';
 import { AddMonthlyChallenges1760000007000 } from './migrations/1760000007000-AddMonthlyChallenges';
 import { AddJapaneseHeritageTranslations1760000008000 } from './migrations/1760000008000-AddJapaneseHeritageTranslations';
+import { AddTranslationRateLimits1760000009000 } from './migrations/1760000009000-AddTranslationRateLimits';
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -29,5 +30,6 @@ export default new DataSource({
     AddPracticeAttempts1760000006000,
     AddMonthlyChallenges1760000007000,
     AddJapaneseHeritageTranslations1760000008000,
+    AddTranslationRateLimits1760000009000,
   ],
 });

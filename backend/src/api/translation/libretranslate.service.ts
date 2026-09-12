@@ -18,13 +18,13 @@ export class LibreTranslateService {
     private readonly configService: ConfigService,
   ) {}
 
-  async translateTexts(texts: string[]): Promise<string[]> {
+  async translateTexts(texts: string[], context?: string): Promise<string[]> {
     if (!texts.length) return [];
 
     const sourceLanguage = 'EN';
     const targetLanguage = 'JA';
     const provider = 'libretranslate';
-    const hashes = texts.map((text) => this.hash(text));
+    const hashes = texts.map((text) => this.hash(text, context));
     const cached = await this.cacheRepository.find({
       where: {
         sourceLanguage,
@@ -46,7 +46,9 @@ export class LibreTranslateService {
 
     if (missingIndexes.length) {
       const sourceTexts = missingIndexes.map((index) => texts[index]);
-      const translations = await this.requestLibreTranslate(sourceTexts);
+      const translations = context
+        ? await this.requestWithContext(sourceTexts, context)
+        : await this.requestLibreTranslate(sourceTexts);
       const newEntries = translations.map((translatedText, offset) => {
         const index = missingIndexes[offset];
         return this.cacheRepository.create({
@@ -99,9 +101,7 @@ export class LibreTranslateService {
       .json()
       .catch(() => ({}))) as LibreTranslateResponse;
     if (!response.ok) {
-      throw new BadGatewayException(
-        data.error ?? 'LibreTranslate translation failed.',
-      );
+      throw new BadGatewayException('LibreTranslate translation failed.');
     }
 
     const translations = Array.isArray(data.translatedText)
@@ -118,7 +118,25 @@ export class LibreTranslateService {
     return translations;
   }
 
-  private hash(text: string) {
-    return createHash('sha256').update(text).digest('hex');
+  private async requestWithContext(texts: string[], context: string) {
+    const separator = '\n\n--- CONTEXT ---\n';
+    const translated = await this.requestLibreTranslate(
+      texts.map((text) => `${text}${separator}${context}`),
+    );
+    return translated.map((value) => {
+      const contextIndex = value.search(/\n\s*---[^\n]*---\s*\n/i);
+      return (
+        contextIndex >= 0 ? value.slice(0, contextIndex) : value.split('\n')[0]
+      )
+        .trim()
+        .replace(/^[「『“"]/, '')
+        .replace(/[」』”"]$/, '');
+    });
+  }
+
+  private hash(text: string, context?: string) {
+    return createHash('sha256')
+      .update(context ? `${text}\u0000${context}` : text)
+      .digest('hex');
   }
 }

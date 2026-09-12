@@ -1,4 +1,9 @@
-import type { ReviewRating, ReviewSummary, SavedVocabulary } from '../types'
+import type {
+  PaginatedPage,
+  ReviewRating,
+  ReviewSummary,
+  SavedVocabulary,
+} from '../types'
 import { apiClient } from './client'
 
 export type SaveVocabularyInput = {
@@ -15,10 +20,15 @@ export async function getVocabulary(options?: {
   heritageSiteId?: string
   memorization?: boolean
   uncertain?: boolean
+  page?: number
+  pageSize?: number
 }) {
-  const { data } = await apiClient.get<SavedVocabulary[]>('/vocabulary', {
-    params: options,
-  })
+  const { data } = await apiClient.get<PaginatedPage<SavedVocabulary>>(
+    '/vocabulary',
+    {
+      params: options,
+    },
+  )
   return data
 }
 

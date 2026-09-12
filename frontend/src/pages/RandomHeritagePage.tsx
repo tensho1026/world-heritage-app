@@ -17,12 +17,12 @@ import { getHighlights } from '../api/highlights'
 import { translateArticleWithDeepL } from '../api/translations'
 import { AppShell } from '../components/AppShell'
 import { PageError } from '../components/AsyncState'
-// import { SpeechControls } from '../components/SpeechControls'
+import { SpeechControls } from '../components/SpeechControls'
 import { HighlightCapture } from '../components/HighlightCapture'
 import { HighlightsPanel } from '../components/HighlightsPanel'
 import { ReadingQuiz } from '../components/ReadingQuiz'
-// import { ShadowingMode } from '../components/ShadowingMode'
-// import { DictationPractice } from '../components/DictationPractice'
+import { ShadowingMode } from '../components/ShadowingMode'
+import { DictationPractice } from '../components/DictationPractice'
 import { WritingChallenge } from '../components/WritingChallenge'
 import {
   SelectableText,
@@ -320,15 +320,14 @@ export default function RandomHeritagePage() {
   const displayDescription = site.descriptionEn
   const displayJustification = site.justificationEn
   const displayCriteria = site.criteriaText
-  // 音声機能を再開する場合は、以下の speechText と表示箇所を戻す。
-  // const speechText = [
-  //   site.nameEn,
-  //   displayShortDescription,
-  //   displayDescription,
-  //   displayJustification,
-  // ]
-  //   .filter(Boolean)
-  //   .join('. ')
+  const speechText = [
+    site.nameEn,
+    displayShortDescription,
+    displayDescription,
+    displayJustification,
+  ]
+    .filter(Boolean)
+    .join('. ')
 
   return (
     <AppShell>
@@ -344,7 +343,9 @@ export default function RandomHeritagePage() {
                   decoding="async"
                   fetchPriority="high"
                   src={
-                    imageUsingOriginal ? imageUrl ?? optimizedImage : optimizedImage
+                    imageUsingOriginal
+                      ? (imageUrl ?? optimizedImage)
+                      : optimizedImage
                   }
                   alt={site.mainImageCaptionEn ?? site.nameEn}
                   onError={() => {
@@ -508,7 +509,6 @@ export default function RandomHeritagePage() {
             <h2 className="mt-4 font-serif text-[clamp(2rem,3vw,3rem)]">
               Read the story in English.
             </h2>
-            {/* 音声読み上げ・シャドーイング・ディクテーションは現在無効。
             <div className="mt-7">
               <SpeechControls text={speechText} />
             </div>
@@ -520,7 +520,6 @@ export default function RandomHeritagePage() {
                 site.shortDescriptionJa ?? site.descriptionJa ?? undefined
               }
             />
-            */}
             <WritingChallenge
               heritageSiteId={site.uuid}
               text={site.shortDescriptionEn ?? site.descriptionEn ?? ''}
@@ -1108,7 +1107,13 @@ function AdditionalMedia({ site }: { site: WorldHeritageSite }) {
   return <DeferredGallery images={images} siteName={site.nameEn} />
 }
 
-function DeferredGallery({ images, siteName }: { images: string[]; siteName: string }) {
+function DeferredGallery({
+  images,
+  siteName,
+}: {
+  images: string[]
+  siteName: string
+}) {
   const [open, setOpen] = useState(false)
 
   return (

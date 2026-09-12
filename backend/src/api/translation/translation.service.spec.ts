@@ -86,8 +86,29 @@ describe('TranslationService', () => {
     await expect(
       service.translateSelection('World Heritage', 'A World Heritage Site.'),
     ).resolves.toEqual({ translationJa: '世界遺産' });
-    expect(libreTranslateService.translateTexts).toHaveBeenCalledWith([
-      'World Heritage',
-    ]);
+    expect(libreTranslateService.translateTexts).toHaveBeenCalledWith(
+      ['World Heritage'],
+      'A World Heritage Site.',
+    );
+  });
+
+  it('keeps ambiguous expressions separate by source sentence', async () => {
+    libreTranslateService.translateTexts
+      .mockResolvedValueOnce(['銀行'])
+      .mockResolvedValueOnce(['土手']);
+
+    await service.translateSelection('bank', 'She went to the bank.');
+    await service.translateSelection('bank', 'They sat on the river bank.');
+
+    expect(libreTranslateService.translateTexts).toHaveBeenNthCalledWith(
+      1,
+      ['bank'],
+      'She went to the bank.',
+    );
+    expect(libreTranslateService.translateTexts).toHaveBeenNthCalledWith(
+      2,
+      ['bank'],
+      'They sat on the river bank.',
+    );
   });
 });

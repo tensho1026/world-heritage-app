@@ -20,7 +20,10 @@ export default function HomePage() {
       : 'all',
   )
   const stats = useQuery({ queryKey: ['stats'], queryFn: getStats })
-  const history = useQuery({ queryKey: ['history'], queryFn: getHistory })
+  const history = useQuery({
+    queryKey: ['history', 1, 5],
+    queryFn: () => getHistory(1, 5),
+  })
   const review = useQuery({
     queryKey: ['review-summary'],
     queryFn: getReviewSummary,
@@ -137,9 +140,9 @@ export default function HomePage() {
                 すべて見る →
               </Link>
             </div>
-            {history.data?.length ? (
+            {history.data?.items.length ? (
               <ul className="mt-4 divide-y divide-[#18352f]/12">
-                {history.data.slice(0, 5).map((item) => (
+                {history.data.items.map((item) => (
                   <li key={item.id}>
                     <Link
                       className="flex items-center justify-between gap-4 py-3 text-sm hover:text-[#b85635]"

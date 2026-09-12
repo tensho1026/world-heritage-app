@@ -10,27 +10,28 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import { SaveVocabularyInput, VocabularyService } from './vocabulary.service';
-import { VocabularyReviewRating } from '../../database/entities/vocabulary-review.entity';
+import { VocabularyService } from './vocabulary.service';
+import {
+  RecordVocabularyReviewDto,
+  SaveVocabularyDto,
+  UpdateVocabularyLearningStateDto,
+  VocabularyQueryDto,
+} from './vocabulary.dto';
 
 @Controller('vocabulary')
 export class VocabularyController {
   constructor(private readonly vocabularyService: VocabularyService) {}
 
   @Get()
-  getAll(
-    @Query('search') search?: string,
-    @Query('sort') sort?: string,
-    @Query('heritageSiteId') heritageSiteId?: string,
-    @Query('memorization') memorization?: string,
-    @Query('uncertain') uncertain?: string,
-  ) {
+  getAll(@Query() query: VocabularyQueryDto) {
     return this.vocabularyService.getAll(
-      search,
-      sort,
-      heritageSiteId,
-      memorization,
-      uncertain,
+      query.search,
+      query.sort,
+      query.heritageSiteId,
+      query.memorization,
+      query.uncertain,
+      query.page,
+      query.pageSize,
     );
   }
 
@@ -55,7 +56,7 @@ export class VocabularyController {
   }
 
   @Post()
-  save(@Body() input: SaveVocabularyInput) {
+  save(@Body() input: SaveVocabularyDto) {
     return this.vocabularyService.save(input);
   }
 
@@ -63,7 +64,7 @@ export class VocabularyController {
   updateLearningState(
     @Param('id', ParseIntPipe) id: number,
     @Body()
-    changes: { isInMemorization?: unknown; isUncertain?: unknown },
+    changes: UpdateVocabularyLearningStateDto,
   ) {
     return this.vocabularyService.updateLearningState(id, changes);
   }
@@ -71,9 +72,9 @@ export class VocabularyController {
   @Post(':id/reviews')
   recordReview(
     @Param('id', ParseIntPipe) id: number,
-    @Body('rating') rating: VocabularyReviewRating,
+    @Body() input: RecordVocabularyReviewDto,
   ) {
-    return this.vocabularyService.recordReview(id, rating);
+    return this.vocabularyService.recordReview(id, input.rating);
   }
 
   @Delete(':id')

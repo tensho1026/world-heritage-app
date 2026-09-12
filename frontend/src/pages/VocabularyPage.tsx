@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { getApiErrorMessage } from '../api/client'
 import {
   deleteVocabulary,
@@ -9,23 +8,39 @@ import {
 } from '../api/vocabulary'
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
-// import { SpeakButton } from '../components/SpeakButton'
+import { Pagination } from '../components/Pagination'
+import { SpeakButton } from '../components/SpeakButton'
 
 type Filter = 'all' | 'memorization' | 'uncertain'
 
 export default function VocabularyPage() {
-  const [search, setSearch] = useState('')
-  const [sort, setSort] = useState('newest')
-  const [filter, setFilter] = useState<Filter>('all')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const search = searchParams.get('q') ?? ''
+  const sort = searchParams.get('sort') ?? 'newest'
+  const filter = (searchParams.get('filter') ?? 'all') as Filter
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
+  const updateFilters = (changes: Record<string, string>) => {
+    const next = new URLSearchParams(searchParams)
+    Object.entries(changes).forEach(([key, value]) => {
+      if (!value || value === 'all' || value === 'newest' || value === '1') {
+        next.delete(key)
+      } else {
+        next.set(key, value)
+      }
+    })
+    if (!('page' in changes)) next.delete('page')
+    setSearchParams(next)
+  }
   const queryClient = useQueryClient()
   const vocabulary = useQuery({
-    queryKey: ['vocabulary', search, sort, filter],
+    queryKey: ['vocabulary', search, sort, filter, page],
     queryFn: () =>
       getVocabulary({
         search: search || undefined,
         sort,
         memorization: filter === 'memorization' ? true : undefined,
         uncertain: filter === 'uncertain' ? true : undefined,
+        page,
       }),
   })
   const stateMutation = useMutation({
@@ -44,6 +59,9 @@ export default function VocabularyPage() {
   const deleteMutation = useMutation({
     mutationFn: deleteVocabulary,
     onSuccess: () => {
+      if (vocabulary.data?.items.length === 1 && page > 1) {
+        updateFilters({ page: String(page - 1) })
+      }
       void queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
       void queryClient.invalidateQueries({ queryKey: ['stats'] })
     },
@@ -77,7 +95,7 @@ export default function VocabularyPage() {
             <span className="sr-only">単語または訳を検索</span>
             <input
               className="h-11 w-full border border-[#18352f]/25 bg-white/50 px-4 text-sm outline-none focus:border-[#b85635]"
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => updateFilters({ q: event.target.value })}
               placeholder="単語または訳を検索"
               type="search"
               value={search}
@@ -85,7 +103,7 @@ export default function VocabularyPage() {
           </label>
           <select
             className="h-11 border border-[#18352f]/25 bg-[#fbf8f1] px-3 text-xs"
-            onChange={(event) => setSort(event.target.value)}
+            onChange={(event) => updateFilters({ sort: event.target.value })}
             value={sort}
             aria-label="並べ替え"
           >
@@ -95,7 +113,7 @@ export default function VocabularyPage() {
           </select>
           <select
             className="h-11 border border-[#18352f]/25 bg-[#fbf8f1] px-3 text-xs"
-            onChange={(event) => setFilter(event.target.value as Filter)}
+            onChange={(event) => updateFilters({ filter: event.target.value })}
             value={filter}
             aria-label="状態で絞り込み"
           >
@@ -114,7 +132,7 @@ export default function VocabularyPage() {
             onRetry={() => vocabulary.refetch()}
           />
         )}
-        {vocabulary.data && !vocabulary.data.length && (
+        {vocabulary.data && !vocabulary.data.items.length && (
           <div className="mt-12 border border-[#18352f]/15 bg-white/40 p-10 text-center">
             <p className="font-serif text-2xl">該当する表現はありません</p>
             <p className="mt-3 text-sm text-[#18352f]/55">
@@ -130,7 +148,7 @@ export default function VocabularyPage() {
         )}
 
         <div className="mt-8 space-y-4">
-          {vocabulary.data?.map((item) => (
+          {vocabulary.data?.items.map((item) => (
             <article
               className="border border-[#18352f]/15 bg-white/45 p-6"
               key={item.id}
@@ -139,12 +157,10 @@ export default function VocabularyPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-3">
                     <h2 className="font-serif text-2xl">{item.expression}</h2>
-                    {/* 音声読み上げは現在無効。
                     <SpeakButton
                       label={`${item.expression}を読み上げる`}
                       text={item.expression}
                     />
-                    */}
                   </div>
                   <p className="mt-2 text-base text-[#b85635]">
                     {item.translationJa}
@@ -191,12 +207,10 @@ export default function VocabularyPage() {
                       <p className="min-w-0 flex-1 text-sm leading-7 text-[#18352f]/68">
                         {source.sourceSentenceEn}
                       </p>
-                      {/* 音声読み上げは現在無効。
                       <SpeakButton
                         label="出典の英文を読み上げる"
                         text={source.sourceSentenceEn}
                       />
-                      */}
                     </div>
                     <Link
                       className="mt-1 inline-block text-[0.65rem] font-bold text-[#b85635]"
@@ -232,6 +246,14 @@ export default function VocabularyPage() {
             </article>
           ))}
         </div>
+        {vocabulary.data && (
+          <Pagination
+            onChange={(nextPage) => updateFilters({ page: String(nextPage) })}
+            page={vocabulary.data.page}
+            total={vocabulary.data.total}
+            totalPages={vocabulary.data.totalPages}
+          />
+        )}
 
         {(stateMutation.isError || deleteMutation.isError) && (
           <p className="mt-5 text-sm text-[#b85635]">

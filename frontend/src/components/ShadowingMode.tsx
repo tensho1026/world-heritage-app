@@ -13,6 +13,8 @@ export function ShadowingMode({ text }: { text: string }) {
   const streamRef = useRef<MediaStream | null>(null)
   const chunksRef = useRef<Blob[]>([])
   const timerRef = useRef<number | null>(null)
+  const speechAvailable =
+    typeof window !== 'undefined' && 'speechSynthesis' in window
 
   useEffect(() => {
     return () => {
@@ -24,7 +26,7 @@ export function ShadowingMode({ text }: { text: string }) {
   }, [recordingUrl])
 
   function speak(index: number, continuePlaying = true) {
-    if (!('speechSynthesis' in window) || !sentences[index]) return
+    if (!speechAvailable || !sentences[index]) return
     window.speechSynthesis.cancel()
     if (timerRef.current) window.clearTimeout(timerRef.current)
     setCurrentIndex(index)
@@ -111,6 +113,7 @@ export function ShadowingMode({ text }: { text: string }) {
           <div className="flex flex-wrap items-center gap-2">
             <button
               className="bg-[#18352f] px-4 py-2.5 text-xs font-bold text-white"
+              disabled={!speechAvailable}
               onClick={() => (playing ? stop() : speak(currentIndex, true))}
               type="button"
             >
@@ -118,6 +121,7 @@ export function ShadowingMode({ text }: { text: string }) {
             </button>
             <button
               className="border border-[#18352f]/25 px-4 py-2.5 text-xs font-bold"
+              disabled={!speechAvailable}
               onClick={() => speak(currentIndex, false)}
               type="button"
             >
@@ -138,6 +142,11 @@ export function ShadowingMode({ text }: { text: string }) {
               </select>
             </label>
           </div>
+          {!speechAvailable && (
+            <p className="mt-3 text-xs text-[#b85635]">
+              このブラウザでは英語の読み上げを利用できません。
+            </p>
+          )}
           <ol className="mt-5 max-h-72 space-y-2 overflow-y-auto pr-2">
             {sentences.map((sentence, index) => (
               <li key={`${sentence}-${index}`}>

@@ -1,0 +1,25 @@
+{
+  "name": "World Heritage Atlas",
+  "short_name": "Heritage Atlas",
+  "description": "世界遺産の英文を読み、聞き、語彙を復習する学習アプリ",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#fbf8f1",
+  "theme_color": "#18352f",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

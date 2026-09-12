@@ -16,6 +16,7 @@ import { WorldHeritageSite } from '../../database/entities/world-heritage-site.e
 import { WikipediaMediaService } from './wikipedia-media.service';
 import { ComprehensionHistory } from '../../database/entities/comprehension-history.entity';
 import { selectRandomByUuid } from '../../database/random-selection';
+import { paginated } from '../../common/dto/pagination-query.dto';
 
 export type HeritageMode = 'all' | 'famous';
 
@@ -181,18 +182,19 @@ export class HeritageService {
     return this.learningRepository.save(state);
   }
 
-  async getFavorites() {
-    return this.getSitesForState('isFavorite');
+  async getFavorites(page = 1, pageSize = 20) {
+    return this.getSitesForState('isFavorite', page, pageSize);
   }
 
-  async getReadLater() {
-    return this.getSitesForState('isReadLater');
+  async getReadLater(page = 1, pageSize = 20) {
+    return this.getSitesForState('isReadLater', page, pageSize);
   }
 
-  async getHistory() {
-    const reads = await this.readRepository.find({
+  async getHistory(page = 1, pageSize = 20) {
+    const [reads, total] = await this.readRepository.findAndCount({
       order: { readAt: 'DESC' },
-      take: 100,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
     const ids = [...new Set(reads.map((read) => read.heritageSiteId))];
     const sites = ids.length
@@ -203,10 +205,11 @@ export class HeritageService {
       : [];
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
 
-    return reads.flatMap((read) => {
+    const items = reads.flatMap((read) => {
       const site = siteMap.get(read.heritageSiteId);
       return site ? [{ ...read, site: this.toSiteSummary(site) }] : [];
     });
+    return paginated(items, total, page, pageSize);
   }
 
   async getStats() {
@@ -287,26 +290,33 @@ export class HeritageService {
     };
   }
 
-  private async getSitesForState(field: 'isFavorite' | 'isReadLater') {
-    const states = await this.learningRepository.find({
+  private async getSitesForState(
+    field: 'isFavorite' | 'isReadLater',
+    page: number,
+    pageSize: number,
+  ) {
+    const [states, total] = await this.learningRepository.findAndCount({
       where: { [field]: true },
       order: { updatedAt: 'DESC' },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     });
     const ids = states.map((state) => state.heritageSiteId);
 
-    if (!ids.length) return [];
+    if (!ids.length) return paginated([], total, page, pageSize);
 
     const sites = await this.heritageRepository.find({
       select: this.siteSummarySelect(),
       where: { uuid: In(ids) },
     });
     const siteMap = new Map(sites.map((site) => [site.uuid, site]));
-    return states.flatMap((state) => {
+    const items = states.flatMap((state) => {
       const site = siteMap.get(state.heritageSiteId);
       return site
         ? [{ ...this.toSiteSummary(site), updatedAt: state.updatedAt }]
         : [];
     });
+    return paginated(items, total, page, pageSize);
   }
 
   private async getOrCreateLearningState(heritageSiteId: string) {

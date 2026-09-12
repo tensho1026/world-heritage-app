@@ -49,7 +49,7 @@ export function WritingChallenge({
     queryFn: () => getVocabulary({ heritageSiteId }),
     enabled: open,
   })
-  const savedExpressions = (vocabulary.data ?? [])
+  const savedExpressions = (vocabulary.data?.items ?? [])
     .map((item) => item.expression)
     .filter((expression) =>
       normalizePracticeText(sentence).includes(
