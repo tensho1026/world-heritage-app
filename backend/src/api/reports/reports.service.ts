@@ -11,6 +11,31 @@ import {
 } from '../../database/entities/vocabulary-review.entity';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 
+type DailyAggregateRow = { day: string; count: string | number };
+type ActiveDateRow = { day: string };
+type WeeklyReadRow = {
+  heritageSiteId: string;
+  count: string | number;
+};
+type WeeklyVocabularyRow = {
+  id: number;
+  expression: string;
+  translationJa: string;
+};
+type DifficultReviewRow = {
+  vocabularyId: number;
+  count: string | number;
+};
+type WeeklyComprehensionRow = Pick<
+  ComprehensionHistory,
+  'id' | 'heritageSiteId' | 'previousLevel' | 'nextLevel' | 'changedAt'
+>;
+type QuizAggregateRow = {
+  attempts: string | number;
+  questions: string | number;
+  score: string | number;
+};
+
 @Injectable()
 export class ReportsService {
   constructor(
@@ -40,50 +65,30 @@ export class ReportsService {
     const end = new Date(
       `${nextYear}-${String(nextMonth).padStart(2, '0')}-01T00:00:00+09:00`,
     );
-    const [reads, vocabulary, reviews] = await Promise.all([
-      this.readRepository.find({ where: { readAt: Between(start, end) } }),
-      this.vocabularyRepository.find({
-        where: { createdAt: Between(start, end) },
-      }),
-      this.reviewRepository.find({
-        where: { reviewedAt: Between(start, end) },
-      }),
-    ]);
+    const activityStart = new Date(Date.now() - 370 * 86_400_000);
+    const [readRows, vocabularyRows, reviewRows, activeDateRows] =
+      await Promise.all([
+        this.dailyCounts('heritage_read', 'readAt', start, end),
+        this.dailyCounts('saved_vocabulary', 'createdAt', start, end),
+        this.dailyCounts('vocabulary_review', 'reviewedAt', start, end),
+        this.activityDates(activityStart),
+      ]);
+
     const days: Record<
       string,
       { reads: number; savedVocabulary: number; reviews: number; total: number }
     > = {};
-    const add = (date: Date, key: 'reads' | 'savedVocabulary' | 'reviews') => {
-      const day = this.formatDay(date);
-      days[day] ??= { reads: 0, savedVocabulary: 0, reviews: 0, total: 0 };
-      days[day][key] += 1;
-      days[day].total += 1;
-    };
-    reads.forEach((item) => add(item.readAt, 'reads'));
-    vocabulary.forEach((item) => add(item.createdAt, 'savedVocabulary'));
-    reviews.forEach((item) => add(item.reviewedAt, 'reviews'));
-    const activityStart = new Date(Date.now() - 370 * 86_400_000);
-    const [recentReads, recentVocabulary, recentReviews] = await Promise.all([
-      this.readRepository.find({
-        where: { readAt: MoreThanOrEqual(activityStart) },
-      }),
-      this.vocabularyRepository.find({
-        where: { createdAt: MoreThanOrEqual(activityStart) },
-      }),
-      this.reviewRepository.find({
-        where: { reviewedAt: MoreThanOrEqual(activityStart) },
-      }),
-    ]);
-    const activeDates = new Set([
-      ...recentReads.map((item) => this.formatDay(item.readAt)),
-      ...recentVocabulary.map((item) => this.formatDay(item.createdAt)),
-      ...recentReviews.map((item) => this.formatDay(item.reviewedAt)),
-    ]);
+    this.addDailyCounts(days, readRows, 'reads');
+    this.addDailyCounts(days, vocabularyRows, 'savedVocabulary');
+    this.addDailyCounts(days, reviewRows, 'reviews');
+
     return {
       month,
       days,
       activeDays: Object.keys(days).length,
-      currentStreak: this.currentStreak(activeDates),
+      currentStreak: this.currentStreak(
+        new Set(activeDateRows.map((row) => row.day.slice(0, 10))),
+      ),
     };
   }
 
@@ -93,32 +98,34 @@ export class ReportsService {
     start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
     const nextWeekEnd = new Date(now.getTime() + 7 * 86_400_000);
-    const [reads, vocabulary, reviews, comprehensionChanges, attempts] =
-      await Promise.all([
-        this.readRepository.find({
-          where: { readAt: MoreThanOrEqual(start) },
-          order: { readAt: 'DESC' },
-        }),
-        this.vocabularyRepository.find({
-          where: { createdAt: MoreThanOrEqual(start) },
-          order: { createdAt: 'DESC' },
-        }),
-        this.reviewRepository.find({
-          where: { reviewedAt: MoreThanOrEqual(start) },
-          order: { reviewedAt: 'DESC' },
-        }),
-        this.comprehensionRepository.find({
-          where: { changedAt: MoreThanOrEqual(start) },
-          order: { changedAt: 'DESC' },
-        }),
-        this.quizRepository.find({
-          where: { completedAt: MoreThanOrEqual(start) },
-        }),
-      ]);
+    const [
+      readRows,
+      vocabulary,
+      difficultRows,
+      comprehensionChanges,
+      quizRows,
+      reviewCount,
+      nextWeekReviewCount,
+    ] = await Promise.all([
+      this.weeklyReadCounts(start),
+      this.weeklyVocabulary(start),
+      this.difficultReviewCounts(start),
+      this.weeklyComprehensionChanges(start),
+      this.quizAggregate(start),
+      this.reviewRepository.count({
+        where: { reviewedAt: MoreThanOrEqual(start) },
+      }),
+      this.vocabularyRepository.count({
+        where: {
+          isInMemorization: true,
+          nextReviewAt: Between(now, nextWeekEnd),
+        },
+      }),
+    ]);
 
     const siteIds = [
       ...new Set([
-        ...reads.map((item) => item.heritageSiteId),
+        ...readRows.map((item) => item.heritageSiteId),
         ...comprehensionChanges.map((item) => item.heritageSiteId),
       ]),
     ];
@@ -129,57 +136,34 @@ export class ReportsService {
         })
       : [];
     const siteMap = new Map(sites.map((site) => [site.uuid, site.nameEn]));
-    const readCounts = new Map<string, number>();
-    reads.forEach((item) =>
-      readCounts.set(
-        item.heritageSiteId,
-        (readCounts.get(item.heritageSiteId) ?? 0) + 1,
-      ),
+    const difficultCounts = new Map(
+      difficultRows.map((row) => [row.vocabularyId, Number(row.count)]),
     );
-
-    const difficultCounts = new Map<number, number>();
-    reviews
-      .filter((review) => review.rating !== VocabularyReviewRating.GOOD)
-      .forEach((review) =>
-        difficultCounts.set(
-          review.vocabularyId,
-          (difficultCounts.get(review.vocabularyId) ?? 0) + 1,
-        ),
-      );
     const difficultIds = [...difficultCounts.keys()];
     const difficultVocabulary = difficultIds.length
-      ? await this.vocabularyRepository.findBy({ id: In(difficultIds) })
+      ? await this.vocabularyRepository.find({
+          select: {
+            id: true,
+            expression: true,
+            translationJa: true,
+            lapseCount: true,
+          },
+          where: { id: In(difficultIds) },
+        })
       : [];
-
-    const nextWeekReviewCount = await this.vocabularyRepository.count({
-      where: {
-        isInMemorization: true,
-        nextReviewAt: Between(now, nextWeekEnd),
-      },
-    });
-    const quizQuestionCount = attempts.reduce(
-      (total, attempt) => total + attempt.total,
-      0,
-    );
-    const quizScore = attempts.reduce(
-      (total, attempt) => total + attempt.score,
-      0,
-    );
+    const [quizAggregate] = quizRows;
+    const quizQuestionCount = Number(quizAggregate?.questions ?? 0);
 
     return {
       generatedAt: now,
       periodStart: start,
       periodEnd: now,
-      readSites: [...readCounts.entries()].map(([heritageSiteId, count]) => ({
-        heritageSiteId,
-        nameEn: siteMap.get(heritageSiteId) ?? 'Unknown site',
-        count,
+      readSites: readRows.map((row) => ({
+        heritageSiteId: row.heritageSiteId,
+        nameEn: siteMap.get(row.heritageSiteId) ?? 'Unknown site',
+        count: Number(row.count),
       })),
-      newVocabulary: vocabulary.map((item) => ({
-        id: item.id,
-        expression: item.expression,
-        translationJa: item.translationJa,
-      })),
+      newVocabulary: vocabulary,
       difficultVocabulary: difficultVocabulary
         .map((item) => ({
           id: item.id,
@@ -194,12 +178,123 @@ export class ReportsService {
         heritageNameEn: siteMap.get(item.heritageSiteId) ?? 'Unknown site',
       })),
       nextWeekReviewCount,
-      reviewCount: reviews.length,
-      quizAttempts: attempts.length,
+      reviewCount,
+      quizAttempts: Number(quizAggregate?.attempts ?? 0),
       quizAccuracy: quizQuestionCount
-        ? Math.round((quizScore / quizQuestionCount) * 100)
+        ? Math.round(
+            (Number(quizAggregate?.score ?? 0) / quizQuestionCount) * 100,
+          )
         : null,
     };
+  }
+
+  private dailyCounts(
+    table: 'heritage_read' | 'saved_vocabulary' | 'vocabulary_review',
+    column: 'readAt' | 'createdAt' | 'reviewedAt',
+    start: Date,
+    end: Date,
+  ) {
+    return this.readRepository.query(
+      `SELECT TO_CHAR("${column}" AT TIME ZONE 'Asia/Tokyo', 'YYYY-MM-DD') AS day,
+              COUNT(*)::int AS count
+       FROM "${table}"
+       WHERE "${column}" >= $1 AND "${column}" < $2
+       GROUP BY 1
+       ORDER BY 1`,
+      [start, end],
+    ) as Promise<DailyAggregateRow[]>;
+  }
+
+  private activityDates(start: Date) {
+    return this.readRepository.query(
+      `SELECT DISTINCT activity.day::text AS day
+       FROM (
+         SELECT DATE("readAt" AT TIME ZONE 'Asia/Tokyo') AS day
+         FROM "heritage_read"
+         WHERE "readAt" >= $1
+         UNION
+         SELECT DATE("createdAt" AT TIME ZONE 'Asia/Tokyo') AS day
+         FROM "saved_vocabulary"
+         WHERE "createdAt" >= $1
+         UNION
+         SELECT DATE("reviewedAt" AT TIME ZONE 'Asia/Tokyo') AS day
+         FROM "vocabulary_review"
+         WHERE "reviewedAt" >= $1
+       ) activity
+       ORDER BY activity.day`,
+      [start],
+    ) as Promise<ActiveDateRow[]>;
+  }
+
+  private addDailyCounts(
+    days: Record<
+      string,
+      { reads: number; savedVocabulary: number; reviews: number; total: number }
+    >,
+    rows: DailyAggregateRow[],
+    key: 'reads' | 'savedVocabulary' | 'reviews',
+  ) {
+    rows.forEach((row) => {
+      const day = row.day.slice(0, 10);
+      const count = Number(row.count);
+      days[day] ??= { reads: 0, savedVocabulary: 0, reviews: 0, total: 0 };
+      days[day][key] += count;
+      days[day].total += count;
+    });
+  }
+
+  private weeklyReadCounts(start: Date) {
+    return this.readRepository.query(
+      `SELECT "heritageSiteId" AS "heritageSiteId",
+              COUNT(*)::int AS count
+       FROM "heritage_read"
+       WHERE "readAt" >= $1
+       GROUP BY "heritageSiteId"
+       ORDER BY MAX("readAt") DESC`,
+      [start],
+    ) as Promise<WeeklyReadRow[]>;
+  }
+
+  private weeklyVocabulary(start: Date) {
+    return this.vocabularyRepository.query(
+      `SELECT "id", "expression", "translationJa"
+       FROM "saved_vocabulary"
+       WHERE "createdAt" >= $1
+       ORDER BY "createdAt" DESC`,
+      [start],
+    ) as Promise<WeeklyVocabularyRow[]>;
+  }
+
+  private difficultReviewCounts(start: Date) {
+    return this.reviewRepository.query(
+      `SELECT "vocabularyId" AS "vocabularyId",
+              COUNT(*)::int AS count
+       FROM "vocabulary_review"
+       WHERE "reviewedAt" >= $1 AND "rating" <> $2
+       GROUP BY "vocabularyId"`,
+      [start, VocabularyReviewRating.GOOD],
+    ) as Promise<DifficultReviewRow[]>;
+  }
+
+  private weeklyComprehensionChanges(start: Date) {
+    return this.comprehensionRepository.query(
+      `SELECT "id", "heritageSiteId", "previousLevel", "nextLevel", "changedAt"
+       FROM "comprehension_history"
+       WHERE "changedAt" >= $1
+       ORDER BY "changedAt" DESC`,
+      [start],
+    ) as Promise<WeeklyComprehensionRow[]>;
+  }
+
+  private quizAggregate(start: Date) {
+    return this.quizRepository.query(
+      `SELECT COUNT(*)::int AS attempts,
+              COALESCE(SUM("total"), 0)::int AS questions,
+              COALESCE(SUM("score"), 0)::int AS score
+       FROM "quiz_attempt"
+       WHERE "completedAt" >= $1`,
+      [start],
+    ) as Promise<QuizAggregateRow[]>;
   }
 
   private formatDay(date: Date) {
