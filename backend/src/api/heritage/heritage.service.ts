@@ -15,6 +15,7 @@ import { SavedVocabulary } from '../../database/entities/saved-vocabulary.entity
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { WikipediaMediaService } from './wikipedia-media.service';
 import { ComprehensionHistory } from '../../database/entities/comprehension-history.entity';
+import { selectRandomByUuid } from '../../database/random-selection';
 
 export type HeritageMode = 'all' | 'famous';
 
@@ -53,19 +54,7 @@ export class HeritageService {
 
       return query;
     };
-    const query = createRandomQuery();
-
-    if (validExclude) {
-      query.andWhere('site.uuid != :exclude', { exclude: validExclude });
-    }
-
-    let site = await query.orderBy('RANDOM()').limit(1).getOne();
-
-    // If a mode only has one candidate, showing it again is preferable to an
-    // empty result. With two or more candidates the exclusion query succeeds.
-    if (!site && validExclude) {
-      site = await createRandomQuery().orderBy('RANDOM()').limit(1).getOne();
-    }
+    const site = await selectRandomByUuid(createRandomQuery, validExclude);
 
     if (!site) {
       throw new NotFoundException(
@@ -73,13 +62,17 @@ export class HeritageService {
       );
     }
 
-    void this.wikipediaMediaService.fillMissingImage(site).catch(() => undefined);
+    void this.wikipediaMediaService
+      .fillMissingImage(site)
+      .catch(() => undefined);
     return this.withStoredDisplayImage(site, 640);
   }
 
   async getById(id: string) {
     const site = await this.requireSite(id);
-    void this.wikipediaMediaService.fillMissingImage(site).catch(() => undefined);
+    void this.wikipediaMediaService
+      .fillMissingImage(site)
+      .catch(() => undefined);
     return this.withStoredDisplayImage(site, 640);
   }
 
@@ -254,22 +247,14 @@ export class HeritageService {
         .getRawOne<{ count: string }>(),
       this.readRepository
         .createQueryBuilder('read')
-        .innerJoin(
-          WorldHeritageSite,
-          'site',
-          'site.uuid = read.heritageSiteId',
-        )
+        .innerJoin(WorldHeritageSite, 'site', 'site.uuid = read.heritageSiteId')
         .select('site.category', 'label')
         .addSelect('COUNT(DISTINCT read.heritageSiteId)', 'count')
         .groupBy('site.category')
         .getRawMany<{ label: string; count: string }>(),
       this.readRepository
         .createQueryBuilder('read')
-        .innerJoin(
-          WorldHeritageSite,
-          'site',
-          'site.uuid = read.heritageSiteId',
-        )
+        .innerJoin(WorldHeritageSite, 'site', 'site.uuid = read.heritageSiteId')
         .select("COALESCE(site.region, 'Unknown')", 'label')
         .addSelect('COUNT(DISTINCT read.heritageSiteId)', 'count')
         .groupBy('site.region')

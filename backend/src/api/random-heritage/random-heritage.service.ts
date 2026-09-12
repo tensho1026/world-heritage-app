@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { WorldHeritageSite } from '../../database/entities/world-heritage-site.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { selectRandomByUuid } from '../../database/random-selection';
 
 @Injectable()
 export class RandomHeritageService {
@@ -11,10 +12,8 @@ export class RandomHeritageService {
   ) {}
 
   async getRandomHeritage() {
-    return await this.heritageRepository
-      .createQueryBuilder('site')
-      .orderBy('RANDOM()')
-      .limit(1)
-      .getOne();
+    return selectRandomByUuid(() =>
+      this.heritageRepository.createQueryBuilder('site'),
+    );
   }
 }

@@ -15,6 +15,7 @@ import {
   getCountryProgress,
   getMapProgress,
 } from '../api/discovery'
+import type { MapViewport } from '../api/discovery'
 import { AppShell } from '../components/AppShell'
 import { DiscoveryFiltersPanel } from '../components/DiscoveryFiltersPanel'
 import { PageError } from '../components/AsyncState'
@@ -38,6 +39,7 @@ export default function MapPage() {
   const [mapReady, setMapReady] = useState(false)
   const [draft, setDraft] = useState<DiscoveryFilters>({})
   const [applied, setApplied] = useState<DiscoveryFilters>({})
+  const [viewport, setViewport] = useState<MapViewport | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [selectedCountryIso, setSelectedCountryIso] = useState<string>('')
   const filterOptions = useQuery({
@@ -45,8 +47,10 @@ export default function MapPage() {
     queryFn: getDiscoveryFilters,
   })
   const sites = useQuery({
-    queryKey: ['map-sites', applied],
-    queryFn: () => getMapHeritage(applied),
+    queryKey: ['map-sites', applied, viewport],
+    queryFn: () => getMapHeritage(applied, viewport!),
+    enabled: mapReady && viewport !== null,
+    placeholderData: (previous) => previous,
   })
   const progress = useQuery({
     queryKey: ['heritage-map-progress'],
@@ -78,8 +82,24 @@ export default function MapPage() {
           minZoom: 1,
         })
         map.addControl(new NavigationControl(), 'top-right')
-        map.on('load', () => setMapReady(true))
+        map.on('load', () => {
+          setViewport(readViewport(map!))
+          setMapReady(true)
+        })
+        let viewportTimer: number | undefined
+        const updateViewport = () => {
+          if (viewportTimer !== undefined) {
+            window.clearTimeout(viewportTimer)
+          }
+          viewportTimer = window.setTimeout(() => {
+            if (!cancelled) setViewport(readViewport(map!))
+          }, 120)
+        }
+        map.on('moveend', updateViewport)
         mapInstance.current = map
+        map.on('remove', () => {
+          if (viewportTimer !== undefined) window.clearTimeout(viewportTimer)
+        })
       },
     )
     return () => {
@@ -380,6 +400,16 @@ export default function MapPage() {
       </section>
     </AppShell>
   )
+}
+
+function readViewport(map: MapLibreMap): MapViewport {
+  const bounds = map.getBounds()
+  return {
+    west: Number(bounds.getWest().toFixed(5)),
+    south: Number(bounds.getSouth().toFixed(5)),
+    east: Number(bounds.getEast().toFixed(5)),
+    north: Number(bounds.getNorth().toFixed(5)),
+  }
 }
 
 function ProgressDashboard({ progress }: { progress: HeritageMapProgress }) {

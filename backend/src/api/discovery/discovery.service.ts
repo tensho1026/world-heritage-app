@@ -16,6 +16,7 @@ import {
 } from '../../database/entities/world-heritage-site.entity';
 import { heritageThemes, ThemeDefinition } from './themes';
 import { WikipediaMediaService } from '../heritage/wikipedia-media.service';
+import { selectRandomByUuid } from '../../database/random-selection';
 
 export type DiscoveryFilters = {
   q?: string;
@@ -30,6 +31,10 @@ export type DiscoveryFilters = {
   theme?: string;
   page?: string;
   pageSize?: string;
+  west?: string;
+  south?: string;
+  east?: string;
+  north?: string;
 };
 
 const DISCOVERY_PAGE_SIZE = 24;
@@ -104,6 +109,7 @@ export class DiscoveryService {
 
   async searchMap(filters: DiscoveryFilters) {
     const query = this.createSearchQuery(filters, true);
+    this.applyMapBounds(query, filters);
     query.select([
       'site.uuid',
       'site.latitude',
@@ -113,7 +119,6 @@ export class DiscoveryService {
     const sites = await query
       .orderBy('site.isFeatured', 'DESC')
       .addOrderBy('site.nameEn', 'ASC')
-      .take(2_000)
       .getMany();
     return this.attachLearning(sites, { compact: true });
   }
@@ -303,7 +308,9 @@ export class DiscoveryService {
         representativeParameters,
       ) as Promise<ThemeRepresentativeRow[]>,
     ]);
-    const counts = new Map(countRows.map((row) => [row.slug, Number(row.count)]));
+    const counts = new Map(
+      countRows.map((row) => [row.slug, Number(row.count)]),
+    );
     const representatives = new Map(
       representativeRows.map((row) => [row.slug, row]),
     );
@@ -334,18 +341,16 @@ export class DiscoveryService {
   }
 
   async getRandom(filters: DiscoveryFilters) {
-    const site = await this.createSearchQuery(filters)
-      .select([
+    const site = await selectRandomByUuid(() => {
+      return this.createSearchQuery(filters).select([
         'site.uuid',
         'site.nameEn',
         'site.statesNames',
         'site.category',
         'site.dateInscribed',
         'site.isFeatured',
-      ])
-      .orderBy('RANDOM()')
-      .limit(1)
-      .getOne();
+      ]);
+    });
     if (!site) return null;
     return (await this.attachLearning([site], { imageWidth: 480 }))[0];
   }
@@ -364,7 +369,8 @@ export class DiscoveryService {
       },
       where: { uuid: id },
     });
-    if (!site) throw new NotFoundException('World Heritage site was not found.');
+    if (!site)
+      throw new NotFoundException('World Heritage site was not found.');
     const [result] = await this.attachLearning([site], { includeImage: false });
     return result;
   }
@@ -443,9 +449,7 @@ export class DiscoveryService {
       readCountries: [...countries.values()].filter(
         (country) => country.readIds.size > 0,
       ).length,
-      countries: [...countries.values()].map((country) =>
-        serialize(country),
-      ),
+      countries: [...countries.values()].map((country) => serialize(country)),
       regions: [...regions.values()].map((region) => serialize(region)),
     };
   }
@@ -459,12 +463,7 @@ export class DiscoveryService {
     const sites = await this.heritageRepository
       .createQueryBuilder('site')
       .where(':isoCode = ANY(site.isoCodes)', { isoCode: normalizedIsoCode })
-      .select([
-        'site.uuid',
-        'site.nameEn',
-        'site.statesNames',
-        'site.isoCodes',
-      ])
+      .select(['site.uuid', 'site.nameEn', 'site.statesNames', 'site.isoCodes'])
       .orderBy('site.nameEn', 'ASC')
       .getMany();
     if (!sites.length) {
@@ -611,6 +610,55 @@ export class DiscoveryService {
     }
     if (theme.transboundary) {
       query.andWhere('site.transboundary = true');
+    }
+  }
+
+  private applyMapBounds(
+    query: ReturnType<Repository<WorldHeritageSite>['createQueryBuilder']>,
+    filters: DiscoveryFilters,
+  ) {
+    const keys = ['west', 'south', 'east', 'north'] as const;
+    const values = keys.map((key) => {
+      const value = filters[key];
+      return value === undefined || value.trim() === '' ? null : Number(value);
+    });
+    const hasBounds = values.some((value) => value !== null);
+    if (!hasBounds) return;
+    if (values.some((value) => value === null || !Number.isFinite(value))) {
+      throw new BadRequestException('Invalid map bounds.');
+    }
+
+    const [west, south, east, north] = values as [
+      number,
+      number,
+      number,
+      number,
+    ];
+    if (
+      west < -180 ||
+      west > 180 ||
+      east < -180 ||
+      east > 180 ||
+      south < -90 ||
+      south > 90 ||
+      north < -90 ||
+      north > 90 ||
+      south > north
+    ) {
+      throw new BadRequestException('Invalid map bounds.');
+    }
+
+    query.andWhere('site.latitude BETWEEN :south AND :north', {
+      south,
+      north,
+    });
+    if (west <= east) {
+      query.andWhere('site.longitude BETWEEN :west AND :east', { west, east });
+    } else {
+      query.andWhere('(site.longitude >= :west OR site.longitude <= :east)', {
+        west,
+        east,
+      });
     }
   }
 
