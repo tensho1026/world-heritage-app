@@ -11,13 +11,10 @@ import { TranslationCache } from '../../database/entities/translation-cache.enti
 
 type DeepLResponse = {
   translations?: Array<{ text?: string }>;
-  message?: string;
 };
 
 @Injectable()
 export class DeepLService {
-  private requestTimestamps: number[] = [];
-
   constructor(
     @InjectRepository(TranslationCache)
     private readonly cacheRepository: Repository<TranslationCache>,
@@ -92,8 +89,6 @@ export class DeepLService {
       );
     }
 
-    this.enforceRateLimit();
-
     const baseUrl = (
       this.configService.get<string>('DEEPL_API_BASE_URL') ??
       'https://api-free.deepl.com'
@@ -117,9 +112,7 @@ export class DeepLService {
 
     const data = (await response.json().catch(() => ({}))) as DeepLResponse;
     if (!response.ok) {
-      throw new BadGatewayException(
-        data.message ?? 'DeepL translation failed.',
-      );
+      throw new BadGatewayException('DeepL translation failed.');
     }
 
     const translations = data.translations?.map((item) => item.text ?? '');
@@ -134,23 +127,5 @@ export class DeepLService {
     return createHash('sha256')
       .update(`${text}\u0000${context ?? ''}`)
       .digest('hex');
-  }
-
-  private enforceRateLimit() {
-    const now = Date.now();
-    const maximum = Number(
-      this.configService.get<string>('DEEPL_MAX_REQUESTS_PER_MINUTE') ?? 30,
-    );
-    this.requestTimestamps = this.requestTimestamps.filter(
-      (timestamp) => now - timestamp < 60_000,
-    );
-
-    if (this.requestTimestamps.length >= maximum) {
-      throw new ServiceUnavailableException(
-        'Translation request limit reached. Please try again shortly.',
-      );
-    }
-
-    this.requestTimestamps.push(now);
   }
 }

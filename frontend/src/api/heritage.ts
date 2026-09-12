@@ -4,6 +4,7 @@ import type {
   HeritageStats,
   HistoryItem,
   LearningState,
+  PaginatedPage,
   SiteSummary,
   WorldHeritageSite,
 } from '../types'
@@ -71,18 +72,30 @@ export async function updateReadLater(id: string, value: boolean) {
   return data
 }
 
-export async function getFavorites() {
-  const { data } = await apiClient.get<SiteSummary[]>('/favorites')
+export async function getFavorites(page = 1, pageSize = 20) {
+  const { data } = await apiClient.get<PaginatedPage<SiteSummary>>(
+    '/favorites',
+    {
+      params: { page, pageSize },
+    },
+  )
   return data
 }
 
-export async function getReadLater() {
-  const { data } = await apiClient.get<SiteSummary[]>('/read-later')
+export async function getReadLater(page = 1, pageSize = 20) {
+  const { data } = await apiClient.get<PaginatedPage<SiteSummary>>(
+    '/read-later',
+    {
+      params: { page, pageSize },
+    },
+  )
   return data
 }
 
-export async function getHistory() {
-  const { data } = await apiClient.get<HistoryItem[]>('/history')
+export async function getHistory(page = 1, pageSize = 20) {
+  const { data } = await apiClient.get<PaginatedPage<HistoryItem>>('/history', {
+    params: { page, pageSize },
+  })
   return data
 }
 

@@ -1,23 +1,24 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { HeritageService } from './heritage.service';
+import { PaginationQueryDto } from '../../common/dto/pagination-query.dto';
 
 @Controller()
 export class LibraryController {
   constructor(private readonly heritageService: HeritageService) {}
 
   @Get('favorites')
-  getFavorites() {
-    return this.heritageService.getFavorites();
+  getFavorites(@Query() query: PaginationQueryDto) {
+    return this.heritageService.getFavorites(query.page, query.pageSize);
   }
 
   @Get('read-later')
-  getReadLater() {
-    return this.heritageService.getReadLater();
+  getReadLater(@Query() query: PaginationQueryDto) {
+    return this.heritageService.getReadLater(query.page, query.pageSize);
   }
 
   @Get('history')
-  getHistory() {
-    return this.heritageService.getHistory();
+  getHistory(@Query() query: PaginationQueryDto) {
+    return this.heritageService.getHistory(query.page, query.pageSize);
   }
 
   @Get('stats')

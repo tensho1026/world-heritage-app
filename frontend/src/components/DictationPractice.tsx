@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { recordPracticeAttempt } from '../api/practice'
 import { getVocabulary } from '../api/vocabulary'
 import {
@@ -37,6 +37,7 @@ export function DictationPractice({
   const result = submitted ? comparePracticeAnswer(answer, sentence) : undefined
   const speechAvailable =
     typeof window !== 'undefined' && 'speechSynthesis' in window
+  useEffect(() => () => window.speechSynthesis?.cancel(), [heritageSiteId])
   const saveAttempt = useMutation({
     mutationFn: () =>
       recordPracticeAttempt({
@@ -54,7 +55,7 @@ export function DictationPractice({
     queryFn: () => getVocabulary({ heritageSiteId }),
     enabled: open,
   })
-  const savedExpressions = (vocabulary.data ?? [])
+  const savedExpressions = (vocabulary.data?.items ?? [])
     .map((item) => item.expression)
     .filter((expression) =>
       normalizePracticeText(sentence).includes(

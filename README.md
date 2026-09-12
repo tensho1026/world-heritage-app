@@ -36,6 +36,7 @@ npm run libretranslate:setup
 - `WIKIMEDIA_USER_AGENT`: 連絡先を含むWikimedia向けUser-Agent
 - `LIBRETRANSLATE_URL`: 世界遺産記事の事前翻訳と未保存テキストの翻訳に使うLibreTranslateのURL
 - `LIBRETRANSLATE_API_KEY`: LibreTranslate側でAPIキーを要求する場合のみ設定
+- `TRANSLATION_MAX_REQUESTS_PER_MINUTE`: クライアント・操作ごとの翻訳上限。DBで共有されるため複数プロセスでも有効です。
 
 ChatGPTへの「AIで全文翻訳」は利用者自身のChatGPTをプロンプト付きで開くため、OpenAI APIキーは不要です。
 
@@ -67,6 +68,10 @@ npm run translate:heritages
 英語原文が変わった項目だけを再翻訳します。単語・選択範囲のように事前保存できない
 テキストもLibreTranslateで翻訳し、翻訳キャッシュDBへ保存します。「DeepLで翻訳」
 ボタンを明示的に押した場合だけ、同じ記事をDeepLで翻訳します。
+
+## PWAとオフラインキャッシュ
+
+本番ビルドはPWAとしてインストールできます。Service Workerはアプリの基本画面に加え、直近に取得した記事、単語帳、お気に入り、後で読む、履歴、学習サマリーのGETレスポンスだけを最大24時間・合計120件まで端末内に保持します。書き込み操作、翻訳レスポンス、APIキー、環境変数はキャッシュしません。オフライン時の書き込みは保留・自動再送を行わず、再接続後の操作を画面で案内します。Service Workerを更新すると古い世代のキャッシュは削除されます。
 
 ## 開発サーバー
 

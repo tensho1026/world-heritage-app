@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Link, NavLink } from 'react-router-dom'
+import { NetworkStatus } from './NetworkStatus'
 
 const navigation = [
   { to: '/', label: 'ホーム' },
@@ -17,6 +18,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   return (
     <main className="min-h-screen bg-[#fbf8f1] font-sans text-[#18352f] selection:bg-[#b85635] selection:text-[#fbf8f1]">
       <header className="sticky top-0 z-40 border-b border-[#18352f]/15 bg-[#fbf8f1]/95 backdrop-blur">
+        <NetworkStatus />
         <div className="mx-auto flex min-h-[84px] w-[min(1240px,calc(100%-48px))] items-center justify-between gap-8 max-[760px]:w-[min(100%-32px,720px)] max-[760px]:flex-wrap max-[760px]:gap-3 max-[760px]:py-4">
           <Link
             className="inline-flex shrink-0 items-center gap-3 focus-visible:outline-3 focus-visible:outline-offset-4 focus-visible:outline-[#c98c47]/45"

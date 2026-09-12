@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { getApiErrorMessage } from '../api/client'
 import {
   getFavorites,
@@ -9,6 +10,7 @@ import {
 import { AppShell } from '../components/AppShell'
 import { PageError, PageLoading } from '../components/AsyncState'
 import { HeritageCard } from '../components/HeritageCard'
+import { Pagination } from '../components/Pagination'
 
 export default function CollectionPage({
   kind,
@@ -16,15 +18,20 @@ export default function CollectionPage({
   kind: 'favorites' | 'read-later'
 }) {
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const isFavorites = kind === 'favorites'
   const collection = useQuery({
-    queryKey: [kind],
-    queryFn: isFavorites ? getFavorites : getReadLater,
+    queryKey: [kind, page],
+    queryFn: () => (isFavorites ? getFavorites(page) : getReadLater(page)),
   })
   const remove = useMutation({
     mutationFn: (id: string) =>
       isFavorites ? updateFavorite(id, false) : updateReadLater(id, false),
     onSuccess: () => {
+      if (collection.data?.items.length === 1 && page > 1) {
+        setSearchParams({ page: String(page - 1) })
+      }
       void queryClient.invalidateQueries({ queryKey: [kind] })
       void queryClient.invalidateQueries({ queryKey: ['stats'] })
     },
@@ -53,7 +60,7 @@ export default function CollectionPage({
             onRetry={() => collection.refetch()}
           />
         )}
-        {collection.data && !collection.data.length && (
+        {collection.data && !collection.data.items.length && (
           <div className="mt-12 border border-[#18352f]/15 bg-white/40 p-10 text-center">
             <p className="font-serif text-2xl">まだ登録されていません</p>
             <p className="mt-3 text-sm text-[#18352f]/55">
@@ -62,7 +69,7 @@ export default function CollectionPage({
           </div>
         )}
         <div className="mt-10 grid grid-cols-3 gap-6 max-[900px]:grid-cols-2 max-[600px]:grid-cols-1">
-          {collection.data?.map((site) => (
+          {collection.data?.items.map((site) => (
             <div key={site.uuid}>
               <HeritageCard site={site} />
               <button
@@ -76,6 +83,16 @@ export default function CollectionPage({
             </div>
           ))}
         </div>
+        {collection.data && (
+          <Pagination
+            onChange={(nextPage) =>
+              setSearchParams(nextPage === 1 ? {} : { page: String(nextPage) })
+            }
+            page={collection.data.page}
+            total={collection.data.total}
+            totalPages={collection.data.totalPages}
+          />
+        )}
         {remove.isError && (
           <p className="mt-5 text-sm text-[#b85635]">
             {getApiErrorMessage(remove.error)}

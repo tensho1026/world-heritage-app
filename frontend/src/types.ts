@@ -109,6 +109,15 @@ export type HistoryItem = {
   site: SiteSummary
 }
 
+export type PaginatedPage<T> = {
+  items: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+  hasNextPage: boolean
+}
+
 export type ArticleTranslation = Partial<
   Record<
     | 'nameEn'

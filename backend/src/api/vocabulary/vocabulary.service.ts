@@ -12,6 +12,7 @@ import {
   VocabularyReview,
   VocabularyReviewRating,
 } from '../../database/entities/vocabulary-review.entity';
+import { paginated } from '../../common/dto/pagination-query.dto';
 
 export type SaveVocabularyInput = {
   expression?: unknown;
@@ -99,6 +100,8 @@ export class VocabularyService {
     heritageSiteId?: string,
     memorization?: string,
     uncertain?: string,
+    page = 1,
+    pageSize = 20,
   ) {
     const sort: VocabularySort = ['oldest', 'alphabetical'].includes(
       requestedSort ?? '',
@@ -139,13 +142,25 @@ export class VocabularyService {
     }
 
     if (sort === 'alphabetical') {
-      query.orderBy('vocabulary.normalizedExpression', 'ASC');
+      query
+        .orderBy('vocabulary.normalizedExpression', 'ASC')
+        .addOrderBy('vocabulary.id', 'ASC');
     } else {
-      query.orderBy('vocabulary.createdAt', sort === 'oldest' ? 'ASC' : 'DESC');
+      query
+        .orderBy('vocabulary.createdAt', sort === 'oldest' ? 'ASC' : 'DESC')
+        .addOrderBy('vocabulary.id', sort === 'oldest' ? 'ASC' : 'DESC');
     }
 
-    const vocabulary = await query.take(500).getMany();
-    return this.attachSources(vocabulary);
+    const [vocabulary, total] = await query
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getManyAndCount();
+    return paginated(
+      await this.attachSources(vocabulary),
+      total,
+      page,
+      pageSize,
+    );
   }
 
   async getOne(id: number) {
