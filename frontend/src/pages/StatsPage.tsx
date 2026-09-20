@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
@@ -18,9 +19,9 @@ const comprehensionLabels: Record<ComprehensionLevel, string> = {
 export default function StatsPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const historyPage = Math.max(1, Number(searchParams.get('historyPage')) || 1)
-  const stats = useQuery({ queryKey: ['stats'], queryFn: getStats })
+  const stats = useQuery({ queryKey: queryKeys.stats, queryFn: getStats })
   const history = useQuery({
-    queryKey: ['history', historyPage],
+    queryKey: queryKeys.history.page(historyPage),
     queryFn: () => getHistory(historyPage),
   })
 

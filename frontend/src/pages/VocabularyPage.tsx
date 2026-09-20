@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import { getApiErrorMessage } from '../api/client'
@@ -33,7 +34,7 @@ export default function VocabularyPage() {
   }
   const queryClient = useQueryClient()
   const vocabulary = useQuery({
-    queryKey: ['vocabulary', search, sort, filter, page],
+    queryKey: queryKeys.vocabulary.list(search, sort, filter, page),
     queryFn: () =>
       getVocabulary({
         search: search || undefined,
@@ -52,8 +53,8 @@ export default function VocabularyPage() {
       changes: { isInMemorization?: boolean; isUncertain?: boolean }
     }) => updateVocabularyLearningState(id, changes),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vocabulary.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
   const deleteMutation = useMutation({
@@ -62,8 +63,8 @@ export default function VocabularyPage() {
       if (vocabulary.data?.items.length === 1 && page > 1) {
         updateFilters({ page: String(page - 1) })
       }
-      void queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vocabulary.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 

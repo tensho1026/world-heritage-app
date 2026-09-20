@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { TranslationCache } from '../../database/entities/translation-cache.entity';
 import { LibreTranslateService } from './libretranslate.service';
+import { TranslationCacheService } from './translation-cache.service';
 
 describe('LibreTranslateService', () => {
   const cacheRepository = {
@@ -10,6 +11,9 @@ describe('LibreTranslateService', () => {
     create: jest.fn((value: object) => value),
     upsert: jest.fn(),
   };
+  const cacheService = new TranslationCacheService(
+    cacheRepository as unknown as Repository<TranslationCache>,
+  );
 
   beforeEach(() => jest.clearAllMocks());
   afterEach(() => jest.restoreAllMocks());
@@ -23,10 +27,9 @@ describe('LibreTranslateService', () => {
         translatedText: '世界遺産',
       },
     ]);
-    const service = new LibreTranslateService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      { get: jest.fn() } as unknown as ConfigService,
-    );
+    const service = new LibreTranslateService(cacheService, {
+      get: jest.fn(),
+    } as unknown as ConfigService);
     const fetchSpy = jest.spyOn(global, 'fetch');
 
     await expect(service.translateTexts(['World Heritage'])).resolves.toEqual([
@@ -47,10 +50,7 @@ describe('LibreTranslateService', () => {
       ok: true,
       json: async () => ({ translatedText: ['世界遺産'] }),
     } as Response);
-    const service = new LibreTranslateService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      config,
-    );
+    const service = new LibreTranslateService(cacheService, config);
 
     await expect(service.translateTexts(['World Heritage'])).resolves.toEqual([
       '世界遺産',
@@ -79,10 +79,9 @@ describe('LibreTranslateService', () => {
         translatedText: ['土手\n\n--- コンテキスト ---\n彼らは川岸に座った。'],
       }),
     } as Response);
-    const service = new LibreTranslateService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      { get: jest.fn() } as unknown as ConfigService,
-    );
+    const service = new LibreTranslateService(cacheService, {
+      get: jest.fn(),
+    } as unknown as ConfigService);
 
     await expect(
       service.translateTexts(['bank'], 'They sat on the river bank.'),

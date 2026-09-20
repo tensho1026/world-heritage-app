@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useState } from 'react'
 import { recordPracticeAttempt } from '../api/practice'
@@ -51,7 +52,7 @@ export function DictationPractice({
       }),
   })
   const vocabulary = useQuery({
-    queryKey: ['vocabulary', 'practice', heritageSiteId],
+    queryKey: queryKeys.vocabulary.list('practice', heritageSiteId),
     queryFn: () => getVocabulary({ heritageSiteId }),
     enabled: open,
   })

@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -32,11 +33,11 @@ export default function TimelinePage() {
   const [applied, setApplied] = useState<DiscoveryFilters>({})
   const [visibleLimit, setVisibleLimit] = useState(100)
   const filters = useQuery({
-    queryKey: ['discovery-filters'],
+    queryKey: queryKeys.discovery.filters,
     queryFn: getDiscoveryFilters,
   })
   const timeline = useQuery({
-    queryKey: ['heritage-timeline', applied],
+    queryKey: queryKeys.discovery.timeline(applied),
     queryFn: () => getTimeline(applied),
   })
   const visible = useMemo(() => {

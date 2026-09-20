@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getWeeklyReport } from '../api/reports'
@@ -11,7 +12,7 @@ const levels: Record<ComprehensionLevel, string> = {
 
 export function WeeklyReportPanel() {
   const report = useQuery({
-    queryKey: ['weekly-report'],
+    queryKey: queryKeys.weeklyReport,
     queryFn: getWeeklyReport,
   })
   const data = report.data

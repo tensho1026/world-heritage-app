@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { MouseEvent as ReactMouseEvent, ReactNode } from 'react'
 import { useRef, useState } from 'react'
@@ -131,8 +132,8 @@ export function VocabularyCapture({
     },
     onSuccess: () => {
       setSavedMessage('単語帳に保存しました')
-      void queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vocabulary.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 

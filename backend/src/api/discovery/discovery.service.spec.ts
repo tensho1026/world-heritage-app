@@ -7,6 +7,7 @@ import {
 } from '../../database/entities/world-heritage-site.entity';
 import { DiscoveryService } from './discovery.service';
 import { WikipediaMediaService } from '../heritage/wikipedia-media.service';
+import { DiscoveryThemeService } from './discovery-theme.service';
 
 describe('DiscoveryService progress and timeline', () => {
   const heritageQuery = {
@@ -42,11 +43,13 @@ describe('DiscoveryService progress and timeline', () => {
         site.mainImageUrl ?? site.wikipediaImageUrl ?? null,
     ),
   };
+  const themeService = { getThemes: jest.fn() };
   const service = new DiscoveryService(
     heritageRepository as unknown as Repository<WorldHeritageSite>,
     learningRepository as unknown as Repository<HeritageLearningState>,
     readRepository as unknown as Repository<HeritageRead>,
     wikipediaMediaService as unknown as WikipediaMediaService,
+    themeService as unknown as DiscoveryThemeService,
   );
   const shared = {
     uuid: 'a1d7e93d-f865-53f4-a76b-0c7895273013',
@@ -159,9 +162,7 @@ describe('DiscoveryService progress and timeline', () => {
         east: '3',
         north: '4',
       }),
-    ).resolves.toEqual([
-      expect.objectContaining({ uuid: shared.uuid }),
-    ]);
+    ).resolves.toEqual([expect.objectContaining({ uuid: shared.uuid })]);
     expect(heritageQuery.andWhere).toHaveBeenCalledWith(
       'site.latitude BETWEEN :south AND :north',
       { south: 2, north: 4 },

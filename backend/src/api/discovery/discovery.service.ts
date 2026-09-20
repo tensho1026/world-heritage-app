@@ -15,6 +15,8 @@ import {
   WorldHeritageSite,
 } from '../../database/entities/world-heritage-site.entity';
 import { heritageThemes, ThemeDefinition } from './themes';
+import { DiscoveryThemeService } from './discovery-theme.service';
+import { themeFilters } from './theme-filter';
 import { WikipediaMediaService } from '../heritage/wikipedia-media.service';
 import { selectRandomByUuid } from '../../database/random-selection';
 
@@ -39,30 +41,8 @@ export type DiscoveryFilters = {
 
 const DISCOVERY_PAGE_SIZE = 24;
 const MAX_DISCOVERY_PAGE_SIZE = 100;
-const THEME_CACHE_TTL_MS = 5 * 60_000;
-
-type ThemeSummary = ThemeDefinition & {
-  count: number;
-  representativeUuid: string | null;
-  mainImageUrl: string | null;
-};
-
-type ThemeCountRow = { slug: string; count: string };
-type ThemeRepresentativeRow = {
-  slug: string;
-  uuid: string;
-  nameEn: string;
-  mainImageUrl: string | null;
-  wikipediaImageUrl: string | null;
-  wikipediaPageUrl: string | null;
-};
-
 @Injectable()
 export class DiscoveryService {
-  private themeCache: { expiresAt: number; value: ThemeSummary[] } | null =
-    null;
-  private themeLoad: Promise<ThemeSummary[]> | null = null;
-
   constructor(
     @InjectRepository(WorldHeritageSite)
     private readonly heritageRepository: Repository<WorldHeritageSite>,
@@ -71,6 +51,7 @@ export class DiscoveryService {
     @InjectRepository(HeritageRead)
     private readonly readRepository: Repository<HeritageRead>,
     private readonly wikipediaMediaService: WikipediaMediaService,
+    private readonly themeService: DiscoveryThemeService,
   ) {}
 
   async searchPage(filters: DiscoveryFilters) {
@@ -252,92 +233,8 @@ export class DiscoveryService {
     };
   }
 
-  async getThemes() {
-    if (this.themeCache && this.themeCache.expiresAt > Date.now()) {
-      return this.themeCache.value;
-    }
-    if (this.themeLoad) return this.themeLoad;
-
-    this.themeLoad = this.loadThemes();
-    try {
-      const value = await this.themeLoad;
-      this.themeCache = {
-        expiresAt: Date.now() + THEME_CACHE_TTL_MS,
-        value,
-      };
-      return value;
-    } finally {
-      this.themeLoad = null;
-    }
-  }
-
-  private async loadThemes(): Promise<ThemeSummary[]> {
-    // Keep all theme counts and representatives in two database round trips.
-    // The previous implementation issued two queries per theme, which made a
-    // cold /discovery/themes request wait on 34 independent queries.
-    const countParameters: string[] = [];
-    const countSql = heritageThemes
-      .map((theme) => {
-        const slug = this.addThemeParameter(countParameters, theme.slug);
-        const condition = this.themeSqlCondition(theme, (value) =>
-          this.addThemeParameter(countParameters, value),
-        );
-        return `SELECT ${slug}::text AS slug, COUNT(*)::text AS count FROM world_heritage_site site WHERE ${condition}`;
-      })
-      .join(' UNION ALL ');
-    const representativeParameters: string[] = [];
-    const representativeSql = heritageThemes
-      .map((theme) => {
-        const slug = this.addThemeParameter(
-          representativeParameters,
-          theme.slug,
-        );
-        const condition = this.themeSqlCondition(theme, (value) =>
-          this.addThemeParameter(representativeParameters, value),
-        );
-        return `(SELECT ${slug}::text AS slug, site."uuid"::text AS uuid, site."nameEn" AS "nameEn", site."mainImageUrl" AS "mainImageUrl", site."wikipediaImageUrl" AS "wikipediaImageUrl", site."wikipediaPageUrl" AS "wikipediaPageUrl" FROM world_heritage_site site WHERE ${condition} ORDER BY site."isFeatured" DESC, site."nameEn" ASC LIMIT 1)`;
-      })
-      .join(' UNION ALL ');
-
-    const [countRows, representativeRows] = await Promise.all([
-      this.heritageRepository.query(countSql, countParameters) as Promise<
-        ThemeCountRow[]
-      >,
-      this.heritageRepository.query(
-        representativeSql,
-        representativeParameters,
-      ) as Promise<ThemeRepresentativeRow[]>,
-    ]);
-    const counts = new Map(
-      countRows.map((row) => [row.slug, Number(row.count)]),
-    );
-    const representatives = new Map(
-      representativeRows.map((row) => [row.slug, row]),
-    );
-
-    return heritageThemes.map((theme) => {
-      const representative = representatives.get(theme.slug);
-      const representativeSite = representative
-        ? ({
-            uuid: representative.uuid,
-            nameEn: representative.nameEn,
-            mainImageUrl: representative.mainImageUrl,
-            wikipediaImageUrl: representative.wikipediaImageUrl,
-            wikipediaPageUrl: representative.wikipediaPageUrl,
-          } as WorldHeritageSite)
-        : null;
-      return {
-        ...theme,
-        count: counts.get(theme.slug) ?? 0,
-        representativeUuid: representative?.uuid ?? null,
-        mainImageUrl: representativeSite
-          ? this.wikipediaMediaService.getDisplayImageUrl(
-              representativeSite,
-              320,
-            )
-          : null,
-      };
-    });
+  getThemes() {
+    return this.themeService.getThemes();
   }
 
   async getRandom(filters: DiscoveryFilters) {
@@ -575,44 +472,48 @@ export class DiscoveryService {
     query: ReturnType<Repository<WorldHeritageSite>['createQueryBuilder']>,
     theme: ThemeDefinition,
   ) {
-    if (theme.country) {
-      query.andWhere(':themeCountry = ANY(site.statesNames)', {
-        themeCountry: theme.country,
-      });
-    }
-    const keywordParts = theme.keywords?.map(
-      (_, index) =>
-        `(site.nameEn ILIKE :themeKeyword${index} OR COALESCE(site.descriptionEn, '') ILIKE :themeKeyword${index})`,
-    );
-    if (keywordParts?.length) {
-      query.andWhere(
-        `(${keywordParts.join(' OR ')})`,
-        Object.fromEntries(
-          theme.keywords!.map((keyword, index) => [
-            `themeKeyword${index}`,
-            `%${keyword}%`,
-          ]),
-        ),
-      );
-    }
-    if (theme.category) {
-      query.andWhere('site.category = :themeCategory', {
-        themeCategory: theme.category,
-      });
-    }
-    if (theme.region) {
-      query.andWhere('site.region = :themeRegion', {
-        themeRegion: theme.region,
-      });
-    }
-    if (theme.danger) {
-      query.andWhere('site.danger = true');
-    }
-    if (theme.transboundary) {
-      query.andWhere('site.transboundary = true');
+    for (const filter of themeFilters(theme)) {
+      switch (filter.kind) {
+        case 'country':
+          query.andWhere(':themeCountry = ANY(site.statesNames)', {
+            themeCountry: filter.value,
+          });
+          break;
+        case 'keywords': {
+          const keywordParts = filter.values.map(
+            (_, index) =>
+              `(site.nameEn ILIKE :themeKeyword${index} OR COALESCE(site.descriptionEn, '') ILIKE :themeKeyword${index})`,
+          );
+          query.andWhere(
+            `(${keywordParts.join(' OR ')})`,
+            Object.fromEntries(
+              filter.values.map((keyword, index) => [
+                `themeKeyword${index}`,
+                `%${keyword}%`,
+              ]),
+            ),
+          );
+          break;
+        }
+        case 'category':
+          query.andWhere('site.category = :themeCategory', {
+            themeCategory: filter.value,
+          });
+          break;
+        case 'region':
+          query.andWhere('site.region = :themeRegion', {
+            themeRegion: filter.value,
+          });
+          break;
+        case 'danger':
+          query.andWhere('site.danger = true');
+          break;
+        case 'transboundary':
+          query.andWhere('site.transboundary = true');
+          break;
+      }
     }
   }
-
   private applyMapBounds(
     query: ReturnType<Repository<WorldHeritageSite>['createQueryBuilder']>,
     filters: DiscoveryFilters,
@@ -660,42 +561,6 @@ export class DiscoveryService {
         east,
       });
     }
-  }
-
-  private addThemeParameter(parameters: string[], value: string) {
-    parameters.push(value);
-    return `$${parameters.length}`;
-  }
-
-  private themeSqlCondition(
-    theme: ThemeDefinition,
-    addParameter: (value: string) => string,
-  ) {
-    const conditions: string[] = [];
-    if (theme.country) {
-      conditions.push(
-        `${addParameter(theme.country)} = ANY(site."statesNames")`,
-      );
-    }
-    if (theme.keywords?.length) {
-      conditions.push(
-        `(${theme.keywords
-          .map((keyword) => {
-            const pattern = addParameter(`%${keyword}%`);
-            return `(site."nameEn" ILIKE ${pattern} OR COALESCE(site."descriptionEn", '') ILIKE ${pattern})`;
-          })
-          .join(' OR ')})`,
-      );
-    }
-    if (theme.category) {
-      conditions.push(`site."category" = ${addParameter(theme.category)}`);
-    }
-    if (theme.region) {
-      conditions.push(`site."region" = ${addParameter(theme.region)}`);
-    }
-    if (theme.danger) conditions.push('site."danger" = true');
-    if (theme.transboundary) conditions.push('site."transboundary" = true');
-    return conditions.length ? conditions.join(' AND ') : 'TRUE';
   }
 
   private historicalPeriods(site: WorldHeritageSite) {

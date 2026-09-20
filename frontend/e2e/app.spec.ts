@@ -509,9 +509,7 @@ test('shows country and regional reading progress on the map page', async ({
         total: 5,
         read: 2,
         percentage: 40,
-        sites: [
-          { uuid: heritage.uuid, nameEn: 'Himeji Castle', read: true },
-        ],
+        sites: [{ uuid: heritage.uuid, nameEn: 'Himeji Castle', read: true }],
       },
     }),
   )

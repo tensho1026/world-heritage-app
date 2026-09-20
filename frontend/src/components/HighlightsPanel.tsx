@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { deleteHighlight, updateHighlight } from '../api/highlights'
@@ -23,7 +24,9 @@ export function HighlightsPanel({
   const [noteJa, setNoteJa] = useState('')
   const [reasonDetail, setReasonDetail] = useState('')
   const invalidate = () =>
-    queryClient.invalidateQueries({ queryKey: ['highlights', heritageSiteId] })
+    queryClient.invalidateQueries({
+      queryKey: queryKeys.highlights(heritageSiteId),
+    })
   const remove = useMutation({
     mutationFn: deleteHighlight,
     onSuccess: invalidate,

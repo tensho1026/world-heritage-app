@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
@@ -36,11 +37,11 @@ export default function ExplorePage() {
   const [applied, setApplied] = useState<DiscoveryFilters>(initial)
   const [page, setPage] = useState(1)
   const filterOptions = useQuery({
-    queryKey: ['discovery-filters'],
+    queryKey: queryKeys.discovery.filters,
     queryFn: getDiscoveryFilters,
   })
   const sites = useQuery({
-    queryKey: ['discovery-sites', applied, page],
+    queryKey: queryKeys.discovery.sites(applied, page),
     queryFn: () => searchHeritage(applied, page),
     placeholderData: (previous) => previous,
   })

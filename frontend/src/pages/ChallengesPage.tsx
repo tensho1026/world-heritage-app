@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import {
@@ -60,19 +61,19 @@ export default function ChallengesPage() {
     emptyForm(currentMonth()),
   )
   const challenges = useQuery({
-    queryKey: ['monthly-challenges', month],
+    queryKey: queryKeys.challenges.month(month),
     queryFn: () => getChallenges(month),
   })
   const filterOptions = useQuery({
-    queryKey: ['discovery-filters'],
+    queryKey: queryKeys.discovery.filters,
     queryFn: getDiscoveryFilters,
   })
-  const themes = useQuery({ queryKey: ['themes'], queryFn: getThemes })
+  const themes = useQuery({ queryKey: queryKeys.themes, queryFn: getThemes })
   const save = useMutation({
     mutationFn: () =>
       editingId ? updateChallenge(editingId, form) : createChallenge(form),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['monthly-challenges'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.challenges.all })
       setEditingId(null)
       setForm(emptyForm(month))
     },
@@ -80,7 +81,7 @@ export default function ChallengesPage() {
   const remove = useMutation({
     mutationFn: deleteChallenge,
     onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ['monthly-challenges'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.challenges.all }),
   })
 
   function edit(challenge: MonthlyChallenge) {

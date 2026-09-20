@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { getThemes } from '../api/discovery'
@@ -14,7 +15,7 @@ const groupLabels = {
 } as const
 
 export default function ThemesPage() {
-  const themes = useQuery({ queryKey: ['themes'], queryFn: getThemes })
+  const themes = useQuery({ queryKey: queryKeys.themes, queryFn: getThemes })
   return (
     <AppShell>
       <section className="mx-auto min-h-[75vh] w-[min(1100px,calc(100%-48px))] py-14 max-[760px]:w-[calc(100%-32px)]">

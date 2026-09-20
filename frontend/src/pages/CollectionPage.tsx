@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
 import { getApiErrorMessage } from '../api/client'
@@ -22,7 +23,7 @@ export default function CollectionPage({
   const page = Math.max(1, Number(searchParams.get('page')) || 1)
   const isFavorites = kind === 'favorites'
   const collection = useQuery({
-    queryKey: [kind, page],
+    queryKey: queryKeys.collections.page(kind, page),
     queryFn: () => (isFavorites ? getFavorites(page) : getReadLater(page)),
   })
   const remove = useMutation({
@@ -32,8 +33,10 @@ export default function CollectionPage({
       if (collection.data?.items.length === 1 && page > 1) {
         setSearchParams({ page: String(page - 1) })
       }
-      void queryClient.invalidateQueries({ queryKey: [kind] })
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.collections.all(kind),
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 
