@@ -4,6 +4,7 @@ import { createHash } from 'node:crypto';
 import { Repository } from 'typeorm';
 import { TranslationCache } from '../../database/entities/translation-cache.entity';
 import { DeepLService } from './deepl.service';
+import { TranslationCacheService } from './translation-cache.service';
 
 describe('DeepLService', () => {
   const cacheRepository = {
@@ -11,6 +12,9 @@ describe('DeepLService', () => {
     create: jest.fn((value: object) => value),
     upsert: jest.fn(),
   };
+  const cacheService = new TranslationCacheService(
+    cacheRepository as unknown as Repository<TranslationCache>,
+  );
 
   afterEach(() => jest.restoreAllMocks());
 
@@ -24,10 +28,7 @@ describe('DeepLService', () => {
       },
     ]);
     const config = { get: jest.fn() } as unknown as ConfigService;
-    const service = new DeepLService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      config,
-    );
+    const service = new DeepLService(cacheService, config);
     const fetchSpy = jest.spyOn(global, 'fetch');
 
     await expect(service.translateTexts(['World Heritage'])).resolves.toEqual([
@@ -50,10 +51,7 @@ describe('DeepLService', () => {
       ok: true,
       json: async () => ({ translations: [{ text: '世界遺産' }] }),
     } as Response);
-    const service = new DeepLService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      config,
-    );
+    const service = new DeepLService(cacheService, config);
 
     await expect(service.translateTexts(['World Heritage'])).resolves.toEqual([
       '世界遺産',
@@ -77,10 +75,7 @@ describe('DeepLService', () => {
       ok: true,
       json: async () => ({ translations: [{ text: '世界遺産' }] }),
     } as Response);
-    const service = new DeepLService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      config,
-    );
+    const service = new DeepLService(cacheService, config);
 
     await expect(
       service.translateTexts(['World Heritage', 'World Heritage']),
@@ -99,10 +94,7 @@ describe('DeepLService', () => {
   it('reports missing configuration without exposing a key', async () => {
     cacheRepository.find.mockResolvedValue([]);
     const config = { get: jest.fn() } as unknown as ConfigService;
-    const service = new DeepLService(
-      cacheRepository as unknown as Repository<TranslationCache>,
-      config,
-    );
+    const service = new DeepLService(cacheService, config);
 
     await expect(service.translateTexts(['hello'])).rejects.toBeInstanceOf(
       ServiceUnavailableException,

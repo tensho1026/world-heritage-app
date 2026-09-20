@@ -6,6 +6,7 @@ import { WorldHeritageSite } from '../../database/entities/world-heritage-site.e
 import { DiscoveryController } from './discovery.controller';
 import { DiscoveryService } from './discovery.service';
 import { HeritageModule } from '../heritage/heritage.module';
+import { DiscoveryThemeService } from './discovery-theme.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { HeritageModule } from '../heritage/heritage.module';
     ]),
   ],
   controllers: [DiscoveryController],
-  providers: [DiscoveryService],
+  providers: [DiscoveryService, DiscoveryThemeService],
   exports: [DiscoveryService],
 })
 export class DiscoveryModule {}

@@ -8,6 +8,7 @@ import { TranslationController } from './translation.controller';
 import { TranslationService } from './translation.service';
 import { TranslationRateLimit } from '../../database/entities/translation-rate-limit.entity';
 import { TranslationRateLimitService } from './translation-rate-limit.service';
+import { TranslationCacheService } from './translation-cache.service';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { TranslationRateLimitService } from './translation-rate-limit.service';
     TranslationService,
     LibreTranslateService,
     DeepLService,
+    TranslationCacheService,
     TranslationRateLimitService,
   ],
 })

@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getLearningCalendar } from '../api/reports'
@@ -13,7 +14,7 @@ export function LearningCalendarPanel() {
     }).format(new Date()),
   )
   const calendar = useQuery({
-    queryKey: ['learning-calendar', month],
+    queryKey: queryKeys.calendar(month),
     queryFn: () => getLearningCalendar(month),
   })
   const cells = calendarCells(month)

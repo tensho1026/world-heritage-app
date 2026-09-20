@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -41,11 +42,11 @@ const ratings: Array<{
 export default function MemorizePage() {
   const queryClient = useQueryClient()
   const vocabulary = useQuery({
-    queryKey: ['vocabulary', 'due'],
+    queryKey: queryKeys.vocabulary.list('due'),
     queryFn: getDueVocabulary,
   })
   const summary = useQuery({
-    queryKey: ['review-summary'],
+    queryKey: queryKeys.reviews.summary,
     queryFn: getReviewSummary,
   })
   const [revealed, setRevealed] = useState(false)
@@ -57,7 +58,7 @@ export default function MemorizePage() {
   const removeCard = useCallback(
     (id: number) => {
       queryClient.setQueryData<SavedVocabulary[]>(
-        ['vocabulary', 'due'],
+        queryKeys.vocabulary.list('due'),
         (items) => items?.filter((item) => item.id !== id) ?? [],
       )
       setRevealed(false)
@@ -72,9 +73,11 @@ export default function MemorizePage() {
       recordVocabularyReview(id, rating),
     onSuccess: (_, variables) => {
       removeCard(variables.id)
-      void queryClient.invalidateQueries({ queryKey: ['review-summary'] })
-      void queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.reviews.summary,
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vocabulary.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 
@@ -83,9 +86,11 @@ export default function MemorizePage() {
       updateVocabularyLearningState(id, { isInMemorization: false }),
     onSuccess: (_, id) => {
       removeCard(id)
-      void queryClient.invalidateQueries({ queryKey: ['review-summary'] })
-      void queryClient.invalidateQueries({ queryKey: ['vocabulary'] })
-      void queryClient.invalidateQueries({ queryKey: ['stats'] })
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.reviews.summary,
+      })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.vocabulary.all })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 

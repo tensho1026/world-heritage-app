@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
 import { getApiErrorMessage } from '../api/client'
@@ -14,14 +15,14 @@ export function ReadingQuiz({
   const [started, setStarted] = useState(false)
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const quiz = useQuery({
-    queryKey: ['quiz', heritageSiteId],
+    queryKey: queryKeys.quiz(heritageSiteId),
     queryFn: () => getQuiz(heritageSiteId),
     enabled: started,
   })
   const submit = useMutation({
     mutationFn: () => submitQuiz(heritageSiteId, answers),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['weekly-report'] })
+      void queryClient.invalidateQueries({ queryKey: queryKeys.weeklyReport })
     },
   })
 

@@ -4,10 +4,8 @@ import {
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { In, Repository } from 'typeorm';
-import { TranslationCache } from '../../database/entities/translation-cache.entity';
+import { TranslationCacheService } from './translation-cache.service';
 
 type DeepLResponse = {
   translations?: Array<{ text?: string }>;
@@ -16,69 +14,21 @@ type DeepLResponse = {
 @Injectable()
 export class DeepLService {
   constructor(
-    @InjectRepository(TranslationCache)
-    private readonly cacheRepository: Repository<TranslationCache>,
+    private readonly translationCacheService: TranslationCacheService,
     private readonly configService: ConfigService,
   ) {}
 
   async translateTexts(texts: string[], context?: string): Promise<string[]> {
-    if (!texts.length) return [];
-
-    const sourceLanguage = 'EN';
-    const targetLanguage = 'JA';
-    const provider = 'deepl';
-    const hashes = texts.map((value) => this.hash(value, context));
-    const cached = await this.cacheRepository.find({
-      where: {
-        sourceLanguage,
-        targetLanguage,
-        sourceTextHash: In(hashes),
-        provider,
-      },
+    return this.translationCacheService.translate({
+      texts,
+      context,
+      provider: 'deepl',
+      sourceLanguage: 'EN',
+      targetLanguage: 'JA',
+      hash: (text, hashContext) => this.hash(text, hashContext),
+      request: (missingTexts, requestContext) =>
+        this.requestDeepL(missingTexts, requestContext),
     });
-    const cacheMap = new Map(
-      cached.map((entry) => [entry.sourceTextHash, entry.translatedText]),
-    );
-    const missingIndexByHash = new Map<string, number>();
-    hashes.forEach((hash, index) => {
-      if (!cacheMap.has(hash) && !missingIndexByHash.has(hash)) {
-        missingIndexByHash.set(hash, index);
-      }
-    });
-    const missingIndexes = [...missingIndexByHash.values()];
-
-    if (missingIndexes.length) {
-      const translated = await this.requestDeepL(
-        missingIndexes.map((index) => texts[index]),
-        context,
-      );
-
-      const newEntries = translated.map((translatedText, offset) => {
-        const index = missingIndexes[offset];
-        return this.cacheRepository.create({
-          sourceLanguage,
-          targetLanguage,
-          sourceTextHash: hashes[index],
-          sourceText: texts[index],
-          translatedText,
-          provider,
-        });
-      });
-
-      await this.cacheRepository.upsert(newEntries, {
-        conflictPaths: [
-          'sourceLanguage',
-          'targetLanguage',
-          'sourceTextHash',
-          'provider',
-        ],
-      });
-      newEntries.forEach((entry) =>
-        cacheMap.set(entry.sourceTextHash, entry.translatedText),
-      );
-    }
-
-    return hashes.map((hash) => cacheMap.get(hash) ?? '');
   }
 
   private async requestDeepL(texts: string[], context?: string) {

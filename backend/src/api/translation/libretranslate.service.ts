@@ -1,9 +1,7 @@
 import { BadGatewayException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { InjectRepository } from '@nestjs/typeorm';
 import { createHash } from 'node:crypto';
-import { In, Repository } from 'typeorm';
-import { TranslationCache } from '../../database/entities/translation-cache.entity';
+import { TranslationCacheService } from './translation-cache.service';
 
 type LibreTranslateResponse = {
   translatedText?: string | string[];
@@ -13,67 +11,23 @@ type LibreTranslateResponse = {
 @Injectable()
 export class LibreTranslateService {
   constructor(
-    @InjectRepository(TranslationCache)
-    private readonly cacheRepository: Repository<TranslationCache>,
+    private readonly translationCacheService: TranslationCacheService,
     private readonly configService: ConfigService,
   ) {}
 
   async translateTexts(texts: string[], context?: string): Promise<string[]> {
-    if (!texts.length) return [];
-
-    const sourceLanguage = 'EN';
-    const targetLanguage = 'JA';
-    const provider = 'libretranslate';
-    const hashes = texts.map((text) => this.hash(text, context));
-    const cached = await this.cacheRepository.find({
-      where: {
-        sourceLanguage,
-        targetLanguage,
-        sourceTextHash: In(hashes),
-        provider,
-      },
+    return this.translationCacheService.translate({
+      texts,
+      context,
+      provider: 'libretranslate',
+      sourceLanguage: 'EN',
+      targetLanguage: 'JA',
+      hash: (text, hashContext) => this.hash(text, hashContext),
+      request: (missingTexts, requestContext) =>
+        requestContext
+          ? this.requestWithContext(missingTexts, requestContext)
+          : this.requestLibreTranslate(missingTexts),
     });
-    const cacheMap = new Map(
-      cached.map((entry) => [entry.sourceTextHash, entry.translatedText]),
-    );
-    const missingIndexByHash = new Map<string, number>();
-    hashes.forEach((hash, index) => {
-      if (!cacheMap.has(hash) && !missingIndexByHash.has(hash)) {
-        missingIndexByHash.set(hash, index);
-      }
-    });
-    const missingIndexes = [...missingIndexByHash.values()];
-
-    if (missingIndexes.length) {
-      const sourceTexts = missingIndexes.map((index) => texts[index]);
-      const translations = context
-        ? await this.requestWithContext(sourceTexts, context)
-        : await this.requestLibreTranslate(sourceTexts);
-      const newEntries = translations.map((translatedText, offset) => {
-        const index = missingIndexes[offset];
-        return this.cacheRepository.create({
-          sourceLanguage,
-          targetLanguage,
-          sourceTextHash: hashes[index],
-          sourceText: texts[index],
-          translatedText,
-          provider,
-        });
-      });
-      await this.cacheRepository.upsert(newEntries, {
-        conflictPaths: [
-          'sourceLanguage',
-          'targetLanguage',
-          'sourceTextHash',
-          'provider',
-        ],
-      });
-      newEntries.forEach((entry) =>
-        cacheMap.set(entry.sourceTextHash, entry.translatedText),
-      );
-    }
-
-    return hashes.map((hash) => cacheMap.get(hash) ?? '');
   }
 
   private async requestLibreTranslate(texts: string[]) {

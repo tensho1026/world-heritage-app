@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { useState } from 'react'
@@ -57,7 +58,7 @@ export function HighlightCapture({
       setReasonDetail('')
       window.getSelection()?.removeAllRanges()
       void queryClient.invalidateQueries({
-        queryKey: ['highlights', heritageSiteId],
+        queryKey: queryKeys.highlights(heritageSiteId),
       })
     },
   })

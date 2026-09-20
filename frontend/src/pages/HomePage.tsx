@@ -1,3 +1,4 @@
+import { queryKeys } from '../api/queryKeys'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -19,13 +20,13 @@ export default function HomePage() {
       ? 'famous'
       : 'all',
   )
-  const stats = useQuery({ queryKey: ['stats'], queryFn: getStats })
+  const stats = useQuery({ queryKey: queryKeys.stats, queryFn: getStats })
   const history = useQuery({
-    queryKey: ['history', 1, 5],
+    queryKey: queryKeys.history.page(1, 5),
     queryFn: () => getHistory(1, 5),
   })
   const review = useQuery({
-    queryKey: ['review-summary'],
+    queryKey: queryKeys.reviews.summary,
     queryFn: getReviewSummary,
   })
 
