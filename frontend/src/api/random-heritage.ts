@@ -1,6 +1,7 @@
-import axios from 'axios'
+import type { WorldHeritageSite } from '../types'
+import { apiClient } from './client'
 
 export async function getRandomHeritage() {
-  const { data } = await axios.get('/api/random-heritage')
+  const { data } = await apiClient.get<WorldHeritageSite>('/random-heritage')
   return data
 }
