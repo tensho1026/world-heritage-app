@@ -2,6 +2,9 @@ import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import compression from 'compression';
 import { json } from 'express';
+// TypeORM loads the PostgreSQL driver dynamically. Keep a static import so
+// Vercel's function bundler includes `pg` in the deployed artifact.
+import 'pg';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
