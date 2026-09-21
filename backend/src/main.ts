@@ -12,6 +12,9 @@ import { AppModule } from './app.module';
 const server = express();
 let appInitialization: Promise<void> | undefined;
 
+const vercelFrontendOrigin =
+  /^https:\/\/world-heritage(?:-app)?-[a-z0-9-]+-tenshos-projects-d37b97a1\.vercel\.app$/;
+
 async function initializeApp() {
   const app = await NestFactory.create(
     AppModule,
@@ -20,9 +23,21 @@ async function initializeApp() {
   );
 
   app.enableCors({
-    origin: [
-      'https://world-heritage-app-sigma.vercel.app',
-    ],
+    origin: (
+      origin: string | undefined,
+      callback: (error: Error | null, allow?: boolean) => void,
+    ) => {
+      if (
+        !origin ||
+        origin === 'https://world-heritage-app-sigma.vercel.app' ||
+        vercelFrontendOrigin.test(origin)
+      ) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('Origin is not allowed by CORS'));
+    },
     credentials: false,
   });
 
