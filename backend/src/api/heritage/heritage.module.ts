@@ -10,6 +10,7 @@ import { HeritageService } from './heritage.service';
 import { LibraryController } from './library.controller';
 import { WikipediaMediaService } from './wikipedia-media.service';
 import { ComprehensionHistory } from '../../database/entities/comprehension-history.entity';
+import { HeritagePdfService } from './heritage-pdf.service';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { ComprehensionHistory } from '../../database/entities/comprehension-hist
     ]),
   ],
   controllers: [HeritageController, LibraryController],
-  providers: [HeritageService, WikipediaMediaService],
+  providers: [HeritageService, WikipediaMediaService, HeritagePdfService],
   exports: [HeritageService, WikipediaMediaService],
 })
 export class HeritageModule {}

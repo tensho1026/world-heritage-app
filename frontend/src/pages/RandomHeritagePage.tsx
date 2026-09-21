@@ -7,6 +7,7 @@ import {
   getHeritage,
   getLearningState,
   getRandomHeritage,
+  downloadHeritagePdf,
   recordHeritageRead,
   recordHeritageView,
   undoHeritageRead,
@@ -72,6 +73,8 @@ export default function RandomHeritagePage() {
     null,
   )
   const [readNotice, setReadNotice] = useState<number | null>(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [pdfError, setPdfError] = useState(false)
   const viewedIdRef = useRef<string | undefined>(undefined)
 
   const heritageQuery = useQuery({
@@ -217,6 +220,19 @@ export default function RandomHeritagePage() {
       : await deepLTranslationQuery.refetch()
     if (result.data) {
       setTranslationDisplay({ siteId: site!.uuid, source: 'deepl' })
+    }
+  }
+
+  async function downloadPdf() {
+    if (!site) return
+    setDownloadingPdf(true)
+    setPdfError(false)
+    try {
+      await downloadHeritagePdf(site.uuid, site.nameEn)
+    } catch {
+      setPdfError(true)
+    } finally {
+      setDownloadingPdf(false)
     }
   }
 
@@ -441,7 +457,14 @@ export default function RandomHeritagePage() {
           }
           onTranslate={toggleTranslation}
           onTranslateWithDeepL={() => void toggleDeepLTranslation()}
+          onDownloadPdf={() => void downloadPdf()}
+          downloadingPdf={downloadingPdf}
         />
+        {pdfError && (
+          <p className="mt-3 text-xs text-[#b85635]">
+            PDFを作成できませんでした。時間をおいて再試行してください。
+          </p>
+        )}
         {deepLTranslationQuery.isError && (
           <p className="mt-3 text-xs text-[#b85635]">
             {getApiErrorMessage(deepLTranslationQuery.error)}
