@@ -13,13 +13,18 @@ import {
   Put,
   Query,
   Redirect,
+  StreamableFile,
 } from '@nestjs/common';
 import { HeritageService } from './heritage.service';
 import { RandomHeritageQueryDto, UpdateComprehensionDto } from './heritage.dto';
+import { HeritagePdfService } from './heritage-pdf.service';
 
 @Controller('heritage')
 export class HeritageController {
-  constructor(private readonly heritageService: HeritageService) {}
+  constructor(
+    private readonly heritageService: HeritageService,
+    private readonly heritagePdfService: HeritagePdfService,
+  ) {}
 
   @Get('random')
   @Header('Cache-Control', 'no-store')
@@ -45,6 +50,22 @@ export class HeritageController {
       url: await this.heritageService.getImageUrl(id, width),
       statusCode: 302,
     };
+  }
+
+  @Get(':id/pdf')
+  @Header('Cache-Control', 'no-store')
+  async getPdf(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('language') language?: string,
+  ) {
+    const pdf = await this.heritagePdfService.createPdf(id, language);
+    const asciiFilename = 'world-heritage.pdf';
+    const encodedFilename = encodeURIComponent(pdf.filename);
+    return new StreamableFile(pdf.buffer, {
+      type: 'application/pdf',
+      disposition: `attachment; filename="${asciiFilename}"; filename*=UTF-8''${encodedFilename}`,
+      length: pdf.buffer.length,
+    });
   }
 
   @Get(':id')

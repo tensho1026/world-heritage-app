@@ -194,6 +194,8 @@ export function ActionBar({
   onTranslateWithDeepL,
   onFavorite,
   onReadLater,
+  onDownloadPdf,
+  downloadingPdf,
 }: {
   site: WorldHeritageSite
   learning?: LearningState
@@ -208,6 +210,8 @@ export function ActionBar({
   onTranslateWithDeepL: () => void
   onFavorite: () => void
   onReadLater: () => void
+  onDownloadPdf: () => void
+  downloadingPdf: boolean
 }) {
   const button = 'border px-4 py-2.5 text-xs font-bold disabled:opacity-50'
   return (
@@ -273,6 +277,14 @@ export function ActionBar({
           aria-pressed={learning?.isReadLater ?? false}
         >
           {learning?.isReadLater ? '✓ 後で読むに保存済み' : '＋ 後で読む'}
+        </button>
+        <button
+          className={`${button} border-[#c98c47] text-[#8a5b22] hover:bg-[#c98c47] hover:text-white`}
+          disabled={downloadingPdf}
+          onClick={onDownloadPdf}
+          type="button"
+        >
+          {downloadingPdf ? 'PDFを作成中…' : 'PDFで保存'}
         </button>
       </div>
       {captureMode && (

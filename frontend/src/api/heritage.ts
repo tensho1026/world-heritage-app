@@ -22,6 +22,26 @@ export async function getHeritage(id: string) {
   return data
 }
 
+export async function downloadHeritagePdf(
+  id: string,
+  filename: string,
+  language: 'en' | 'ja' | 'both' = 'both',
+) {
+  const response = await apiClient.get<ArrayBuffer>(`/heritage/${id}/pdf`, {
+    params: { language },
+    responseType: 'arraybuffer',
+  })
+  const blob = new Blob([response.data], { type: 'application/pdf' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = `${filename.replace(/[\\/:*?"<>|]/g, ' ').trim() || 'world-heritage'}.pdf`
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 0)
+}
+
 export async function recordHeritageView(id: string) {
   const { data } = await apiClient.post(`/heritage/${id}/views`)
   return data
