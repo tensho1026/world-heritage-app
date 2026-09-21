@@ -60,6 +60,10 @@ describe('HeritagePdfService', () => {
     expect(result.buffer.length).toBeGreaterThan(10_000);
     expect(repository.findOneBy).toHaveBeenCalledWith({ uuid: site.uuid });
     expect(wikipediaMediaService.fillMissingImage).toHaveBeenCalledWith(site);
+    expect(wikipediaMediaService.getDisplayImageUrl).toHaveBeenCalledWith(
+      site,
+      960,
+    );
   });
 
   it('keeps the PDF export available when no image can be embedded', async () => {

@@ -17,6 +17,7 @@ type HeritagePdf = {
 const PAGE_WIDTH = 595.28;
 const PAGE_MARGIN = 48;
 const BODY_WIDTH = PAGE_WIDTH - PAGE_MARGIN * 2;
+const PDF_IMAGE_WIDTH = 960;
 const TEXT_COLOR = '#18352f';
 const MUTED_COLOR = '#53645d';
 const ACCENT_COLOR = '#b85635';
@@ -46,7 +47,7 @@ export class HeritagePdfService {
       await this.wikipediaMediaService.fillMissingImage(site);
     const imageUrl = this.wikipediaMediaService.getDisplayImageUrl(
       enrichedSite,
-      1200,
+      PDF_IMAGE_WIDTH,
     );
     const image = imageUrl ? await this.fetchImage(imageUrl) : null;
     const buffer = await this.renderPdf(enrichedSite, language, image);
