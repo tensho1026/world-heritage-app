@@ -1,15 +1,23 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import compression from 'compression';
-import { json } from 'express';
+import express, { json } from 'express';
+import type { Request, Response } from 'express';
 // TypeORM loads the PostgreSQL driver dynamically. Keep a static import so
 // Vercel's function bundler includes `pg` in the deployed artifact.
 import 'pg';
+import { ExpressAdapter } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { bodyParser: false });
-  const port = process.env.PORT ?? 3000;
+const server = express();
+let appInitialization: Promise<void> | undefined;
+
+async function initializeApp() {
+  const app = await NestFactory.create(
+    AppModule,
+    new ExpressAdapter(server),
+    { bodyParser: false },
+  );
 
   app.enableCors({
     origin: [
@@ -28,7 +36,23 @@ async function bootstrap() {
       stopAtFirstError: false,
     }),
   );
-  await app.listen(port);
+
+  await app.init();
 }
 
-void bootstrap();
+function ensureAppInitialized() {
+  appInitialization ??= initializeApp();
+  return appInitialization;
+}
+
+export default async function handler(req: Request, res: Response) {
+  await ensureAppInitialized();
+  server(req, res);
+}
+
+if (!process.env.VERCEL) {
+  void ensureAppInitialized().then(() => {
+    const port = process.env.PORT ?? 3000;
+    server.listen(port);
+  });
+}
