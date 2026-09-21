@@ -8,6 +8,13 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bodyParser: false });
   const port = process.env.PORT ?? 3000;
 
+  app.enableCors({
+    origin: [
+      'https://world-heritage-app-sigma.vercel.app',
+    ],
+    credentials: false,
+  });
+
   app.use(compression());
   app.use(json({ limit: '64kb' }));
   app.useGlobalPipes(
